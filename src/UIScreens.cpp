@@ -304,11 +304,44 @@ void drawRecipes() {
   int idx = recipes::activeIndex();
   const int ex = 464, ew = W - 24 - ex, ey = 96, eh = 600;
   card(ex, ey, ew, eh);
-  text(r.name, ex + 28, ey + 44, F_TITLE, TEXT);
-  text(r.pourOver ? "Pour-over with timed pours" : "Espresso style", ex + 28, ey + 88, F_BODY, MUTED);
 
-  const int rowH = 84;
-  int y = ey + 150;
+  // name + rename / reset
+  static int resetArmed = -1;
+  const int bw = 140, bh = 52, by0 = ey + 18;
+  textFit(r.name, ex + 28, ey + 44, ew - 56 - 2 * bw - 24, F_TITLE, TEXT);
+  if (button(ex + ew - 28 - bw, by0, bw, bh, resetArmed == idx ? "Confirm" : "Reset",
+             Btn::Danger, true, F_LABEL)) {
+    if (resetArmed == idx) {
+      recipes::resetToDefault(idx);
+      resetArmed = -1;
+    } else {
+      resetArmed = idx;
+    }
+  }
+  if (button(ex + ew - 28 - 2 * bw - 12, by0, bw, bh, "Rename", Btn::Secondary, true, F_LABEL)) {
+    resetArmed = -1;
+    std::string title = std::string("Name for ") + r.name;
+    openKeyboard(title.c_str(), r.name, recipes::MAX_NAME_LEN, false, [idx](const std::string& n) {
+      recipes::rename(idx, n.c_str());
+    }, Screen::Recipes, true);
+  }
+  if (resetArmed == idx) {
+    char rb[64];
+    snprintf(rb, sizeof(rb), "Restores \"%s\"", recipes::defaultName(idx));
+    text(rb, ex + ew - 28, by0 + bh + 16, F_AXIS, BAD, textdatum_t::middle_right);
+  }
+
+  // style: espresso (no stages) or pour-over with timed pours
+  settingRowLabel(ex + 28, ey + 100, "Style", nullptr);
+  static const char* const styles[] = {"Espresso", "Pour-over"};
+  int st = segmented(ex + 28 + 360, ey + 100, styles, 2, r.pourOver ? 1 : 0, 138);
+  if (st >= 0 && (st == 1) != r.pourOver) {
+    recipes::setPourOver(idx, st == 1);
+    resetArmed = -1;
+  }
+
+  const int rowH = 80;
+  int y = ey + 174;
   bool changed = false;
 
   settingRowLabel(ex + 28, y, "Dose", "Coffee in, or weigh it with DOSE");

@@ -18,7 +18,10 @@ journal for an **Acaia Lunar** (also works with Pearl S, Pyxis and other Acaia s
 - **Auto tare** when a cup is placed or removed (a fast jump is a cup, not coffee),
   plus manual **Tare**, **Start/Stop** and **Reset**
 - **Recipes**: Espresso, Ristretto, Lungo, Pour‑over and Free. Each keeps its own dose, ratio,
-  auto‑stop delay and start threshold. Pick one from the chip in the top bar.
+  auto‑stop delay and start threshold. Pick one from the chip in the top bar. Each recipe can be
+  **renamed** and switched between espresso style and pour-over (timed pours), so unused slots
+  can be reused, e.g. Lungo → "Single shot". **Reset** restores a slot's original settings.
+  Past shots keep the name they were made with.
 - **Dose and ratio**: tap **DOSE**, put the beans on the scale, tap **SAVE**. The dose is
   stored in the recipe, the target becomes *dose × ratio*, and the live ratio (`1:2.1`) is
   shown while you brew.

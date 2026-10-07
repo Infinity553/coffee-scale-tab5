@@ -185,18 +185,21 @@ void drawNetworks() {
 static std::string kbTitle, kbText;
 static size_t kbMax = 64;
 static bool kbSecret = false, kbShow = false, kbShift = false;
+static bool kbSelected = false;   // whole text selected: the next key replaces it
 static int kbPage = 0;   // 0 letters, 1 digits & symbols, 2 more symbols
 static std::function<void(const std::string&)> kbDone;
 static Screen kbReturn = Screen::Main;
 
 void openKeyboard(const char* title, const std::string& initial, size_t maxLen, bool secret,
-                  std::function<void(const std::string&)> done, Screen returnTo) {
+                  std::function<void(const std::string&)> done, Screen returnTo, bool selectAll) {
   kbTitle = title;
   kbText = initial;
   kbMax = maxLen;
   kbSecret = secret;
   kbShow = false;
-  kbShift = false;
+  kbSelected = selectAll && !initial.empty();
+  // capital first letter for names and notes (never for passwords)
+  kbShift = !secret && (initial.empty() || kbSelected);
   kbPage = 0;
   kbDone = std::move(done);
   kbReturn = returnTo;
@@ -204,6 +207,7 @@ void openKeyboard(const char* title, const std::string& initial, size_t maxLen, 
 }
 
 static void typeChar(char c) {
+  if (kbSelected) { kbText.clear(); kbSelected = false; }
   if (kbText.size() < kbMax) kbText += c;
   kbShift = false;
 }
@@ -228,9 +232,12 @@ void drawKeyboard() {
   std::string shown = (kbSecret && !kbShow) ? std::string(kbText.size(), '*') : kbText;
   int maxW = fw - (kbSecret ? 200 : 60);
   while (!shown.empty() && textWidth(shown.c_str(), F_BTN) > maxW) shown.erase(0, 1);
+  // tapping the field keeps the text and puts the cursor at the end
+  if (kbSelected && hit(fx, fy, fw - (kbSecret ? 170 : 0), fh)) kbSelected = false;
+  int tw = textWidth(shown.c_str(), F_BTN);
+  if (kbSelected) canvas.fillSmoothRoundRect(fx + 20, fy + 18, tw + 16, fh - 36, 8, ACCENT_LO);
   text(shown.c_str(), fx + 28, fy + fh / 2, F_BTN, TEXT);
-  int cx = fx + 30 + textWidth(shown.c_str(), F_BTN);
-  canvas.fillRect(cx, fy + 22, 3, fh - 44, ACCENT);   // steady cursor: no redraws needed
+  if (!kbSelected) canvas.fillRect(fx + 30 + tw, fy + 22, 3, fh - 44, ACCENT);   // steady cursor
   if (kbSecret && button(fx + fw - 150, fy + 14, 130, fh - 28, kbShow ? "Hide" : "Show",
                          Btn::Ghost, true, F_LABEL))
     kbShow = !kbShow;
@@ -256,8 +263,11 @@ void drawKeyboard() {
   }
   // backspace
   int bx = x0 + 10 * (kw + gap);
-  if (button(bx, y1, W - 24 - bx, kh, "Del", Btn::Secondary, !kbText.empty(), F_LABEL))
-    kbText.pop_back();
+  if (button(bx, y1, W - 24 - bx, kh, "Del", Btn::Secondary, !kbText.empty(), F_LABEL)) {
+    if (kbSelected) kbText.clear(); else kbText.pop_back();
+    kbSelected = false;
+    if (kbText.empty() && !kbSecret) kbShift = true;
+  }
   // bottom row
   static const char* const pageKey[] = {"123", "#+=", "ABC"};
   if (button(x0, y4, 200, kh - 10, pageKey[kbPage], Btn::Secondary, true, F_LABEL))

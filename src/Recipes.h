@@ -9,7 +9,7 @@ struct RecipeStage {
 };
 
 struct Recipe {
-  const char*        name;
+  char               name[24];        // user can rename (max MAX_NAME_LEN characters)
   bool               pourOver;
   float              dose;            // g of coffee (0 = not set)
   float              ratio;           // yield / dose (0 = no target)
@@ -29,10 +29,18 @@ struct Recipe {
 
 namespace recipes {
 constexpr int COUNT = 5;
+constexpr int MAX_NAME_LEN = 18;
 void    load();
 void    save(int index);
 Recipe& get(int index);
 Recipe& active();
 int     activeIndex();
 void    setActive(int index);
+// Renames a recipe. Empty or duplicate names are adjusted; returns the final name.
+const char* rename(int index, const char* name);
+// Espresso style (no stages) or pour-over with timed pours.
+void    setPourOver(int index, bool pourOver);
+// Back to the built-in settings for this slot (name, dose, ratio, ...).
+void    resetToDefault(int index);
+const char* defaultName(int index);
 }  // namespace recipes

@@ -9,4 +9,5 @@ void loop(uint32_t now);      // repeats the report on serial for 2 minutes
 const char* shortReason();    // "" after a normal power-on
 const char* detail();         // full text (also printed to serial)
 bool bannerActive(uint32_t now);
+const char* firmwareId();     // first characters of the firmware's ELF SHA-256
 }  // namespace diag

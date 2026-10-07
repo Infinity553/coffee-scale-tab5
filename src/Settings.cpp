@@ -1,5 +1,6 @@
 #include "Settings.h"
 #include <Preferences.h>
+#include "Backup.h"
 
 Settings settings;
 
@@ -26,6 +27,7 @@ void Settings::load() {
   lastGrind      = p.getFloat("grind", -1);
   finerIsLower   = p.getBool("finerLow", true);
   sleepMin       = p.getUChar("sleep", 10);
+  autoBackup     = p.getBool("autoBk", true);
   wifiEnabled    = p.getBool("wifiOn", false);
   wifiMode       = p.getUChar("wifiMode", WIFI_HOTSPOT);
   wifiSsid       = p.getString("wifiSsid", "");
@@ -54,11 +56,13 @@ void Settings::save() const {
   p.putFloat("grind", lastGrind);
   p.putBool("finerLow", finerIsLower);
   p.putUChar("sleep", sleepMin);
+  p.putBool("autoBk", autoBackup);
   p.putBool("wifiOn", wifiEnabled);
   p.putUChar("wifiMode", wifiMode);
   p.putString("wifiSsid", wifiSsid);
   p.putString("wifiPass", wifiPass);
   p.end();
+  backup::markDirty();
 }
 
 void Settings::forgetScale() {

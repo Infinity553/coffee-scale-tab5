@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 #include "AcaiaScale.h"
+#include "Backup.h"
 #include "Brew.h"
 #include "History.h"
 #include "Net.h"
@@ -81,6 +82,7 @@ static void openScreen(const std::string& v) {
   if (v == "history") ui::setScreen(Screen::History);
   if (v == "wifi") ui::setScreen(Screen::Wifi);
   if (v == "networks") ui::setScreen(Screen::WifiNetworks);
+  if (v == "system") ui::setScreen(Screen::System);
 }
 
 void setup() {
@@ -140,6 +142,7 @@ void loop() {
     if (!t.done && sec >= t.at) { t.done = true; ui::simulateTap(t.x, t.y); }
   }
   ui::update();
+  backup::loop(millis(), brew.state() == BrewState::Running);
 
   if (nextSnap < snaps.size() && sec >= snaps[nextSnap]) {
     ui::invalidate();

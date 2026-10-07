@@ -28,6 +28,7 @@ struct Settings {
   float    lastGrind      = -1;     // last grind setting used (-1 = unset)
   bool     finerIsLower   = true;   // grinder: a lower number grinds finer
   uint8_t  sleepMin       = 10;     // screen sleep after minutes idle (0 = never)
+  bool     autoBackup     = true;   // back up settings + recipes to the SD card
 
   // network
   bool     wifiEnabled    = false;

@@ -1,6 +1,7 @@
 // Frame loop: touch, partial / full redraws, rotation and screen sleep.
 #include "UI.h"
 #include "AcaiaScale.h"
+#include "Backup.h"
 #include "Blit.h"
 #include "History.h"
 #include "Net.h"
@@ -165,6 +166,7 @@ static void drawScreen() {
     case Screen::Wifi:         drawWifi(); break;
     case Screen::WifiNetworks: drawNetworks(); break;
     case Screen::Keyboard:     drawKeyboard(); break;
+    case Screen::System:       drawSystem(); break;
   }
 }
 
@@ -192,6 +194,11 @@ static uint32_t screenSignature() {
     case Screen::WifiNetworks:
       mix(net::scanning()); mix((uint32_t)net::lastScanResult());
       for (auto& n : net::networks()) { mixs(n.ssid); mix(n.rssi / 10); }
+      break;
+    case Screen::SetupWelcome:
+    case Screen::System:
+      mix(history::available()); mix(backup::lastSavedMs()); mix(settings.autoBackup);
+      mix((uint32_t)history::count()); mix(millis() / 1000 % 4 == 0);   // refresh "saved" notes
       break;
     default:
       break;

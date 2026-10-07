@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <mutex>
 #include "AcaiaScale.h"
+#include "Backup.h"
 #include "Diag.h"
 #include "History.h"
 #include "Recipes.h"
@@ -186,6 +187,22 @@ static void handleReference() {
   sendJson(200, "{\"ok\":true}");
 }
 
+static void handleBackupGet() {
+  attachment("coffee-scale-backup.json");
+  sendJson(200, backup::toJson());
+}
+
+static void handleBackupPost() {
+  std::string err;
+  if (!server.hasArg("plain") || !backup::fromJson(server.arg("plain").c_str(), &err)) {
+    std::string body = "{\"error\":\"" + (err.empty() ? std::string("No backup received.") : err) + "\"}";
+    return sendJson(400, body);
+  }
+  backup::saveToSd();
+  sendJson(200, "{\"ok\":true}");
+  backup::restartSoon();   // the display restarts to apply everything
+}
+
 static void handleIndex() {
   server.sendHeader("Content-Encoding", "gzip");
   server.sendHeader("Cache-Control", "no-cache");
@@ -203,6 +220,8 @@ static void setupServer() {
   server.on("/api/rate", HTTP_POST, handleRate);
   server.on("/api/delete", HTTP_POST, handleDelete);
   server.on("/api/reference", HTTP_POST, handleReference);
+  server.on("/api/backup", HTTP_GET, handleBackupGet);
+  server.on("/api/backup", HTTP_POST, handleBackupPost);
   server.onNotFound([] { server.send(404, "text/plain", "not found"); });
 }
 

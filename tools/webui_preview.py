@@ -75,6 +75,10 @@ class Handler(BaseHTTPRequestHandler):
             w.writerows(zip(s["t"], s["w"], s["f"]))
             return self.send(200, out.getvalue(), "text/csv",
                              {"Content-Disposition": f'attachment; filename="shot-{q["id"]}.csv"'})
+        if u.path == "/api/backup":
+            body = json.dumps({"format": "coffeescale-backup", "version": 1, "created": 0,
+                               "settings": {"colorScheme": 0}, "recipes": []}, indent=2)
+            return self.send(200, body, extra={"Content-Disposition": 'attachment; filename="coffee-scale-backup.json"'})
         if u.path == "/api/export.json":
             shots = [json.loads(self.shot(m["id"])) for m in load_index()["shots"]]
             return self.send(200, json.dumps({"shots": shots}), extra={"Content-Disposition": 'attachment; filename="coffee-shots.json"'})
@@ -102,6 +106,13 @@ class Handler(BaseHTTPRequestHandler):
             save_index(doc)
         elif u.path == "/api/reference":
             state["ref"] = sid
+        elif u.path == "/api/backup":
+            n = int(self.headers.get("Content-Length", 0))
+            try:
+                doc = json.loads(self.rfile.read(n))
+                assert doc.get("format") == "coffeescale-backup"
+            except Exception:
+                return self.send(400, '{"error":"The file is not a Coffee Scale backup."}')
         else:
             return self.send(404, "not found", "text/plain")
         self.send(200, '{"ok":true}')

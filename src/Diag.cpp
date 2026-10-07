@@ -101,6 +101,12 @@ void loop(uint32_t now) {
   Serial.println(detailText);
 }
 
+const char* firmwareId() {
+  static char id[17] = "";
+  if (!*id) esp_app_get_elf_sha256(id, sizeof(id));
+  return id;
+}
+
 const char* shortReason() { return shortText; }
 const char* detail() { return detailText; }
 bool bannerActive(uint32_t now) { return *shortText && now < 30000; }

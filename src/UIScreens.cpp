@@ -1,9 +1,13 @@
 // Settings, first-run setup, scale scan and recipe screens.
 #include "AcaiaScale.h"
+#include "Backup.h"
+#include "Blit.h"
+#include "Diag.h"
 #include "History.h"
 #include "Net.h"
 #include "Recipes.h"
 #include "Settings.h"
+#include "Storage.h"
 #include "UIKit.h"
 
 namespace ui {
@@ -139,11 +143,8 @@ void drawSettings() {
     scale.setTarget("");
     scale.disconnect();
   }
-  if (button(rx + 28 + 2 * (bw + 12), y, bw, 56, "Setup", Btn::Ghost, true, F_LABEL)) {
-    settings.configured = false;
-    settings.save();
-    setScreen(Screen::SetupWelcome);
-  }
+  if (button(rx + 28 + 2 * (bw + 12), y, bw, 56, "System", Btn::Ghost, true, F_LABEL))
+    setScreen(Screen::System);
 }
 
 // ---------------------------------------------------------------------------
@@ -157,12 +158,111 @@ void drawWelcome() {
        textdatum_t::middle_center);
   text("Switch on the scale and keep it close, then tap Continue.", W / 2, 474, F_BODYL, MUTED,
        textdatum_t::middle_center);
-  if (button(W / 2 - 170, 550, 340, 88, "Continue", Btn::Primary)) {
+  uint32_t created = 0;
+  bool haveBackup = backup::sdBackupInfo(created);
+  if (haveBackup) {
+    char b[96], d[40];
+    formatDate(d, sizeof(d), created, 0);
+    snprintf(b, sizeof(b), "A settings backup was found on the SD card%s%s.", created ? " from " : "",
+             created ? d : "");
+    text(b, W / 2, 520, F_BODY, ACCENT_HI, textdatum_t::middle_center);
+    if (button(W / 2 - 360, 560, 340, 88, "Restore backup", Btn::Secondary)) {
+      if (backup::restoreFromSd()) backup::restartSoon();
+    }
+  }
+  if (backup::restartPending()) {
+    text("Restored. Restarting...", W / 2, 680, F_LABEL, GOOD, textdatum_t::middle_center);
+  }
+  if (button(haveBackup ? W / 2 + 20 : W / 2 - 170, haveBackup ? 560 : 550, 340, 88, "Continue",
+             Btn::Primary, !backup::restartPending())) {
     resetScanSelection();
     scale.startDiscovery();
     setScreen(Screen::SetupScan);
   }
   stepDots(0, 3);
+}
+
+// ---------------------------------------------------------------------------
+// system: backup / restore, about
+// ---------------------------------------------------------------------------
+void drawSystem() {
+  topBar("System", Screen::Settings);
+  char b[128], d[40];
+  static uint32_t savedNoteMs = 0;
+  static bool restoreArmed = false;
+  static std::string message;
+  static bool messageBad = false;
+
+  // --- backup ---
+  const int lx = 24, lw = 600, top = 96;
+  card(lx, top, lw, 600);
+  text("BACKUP", lx + 28, top + 34, F_LABEL, MUTED);
+  bool sd = history::available();
+  uint32_t created = 0;
+  bool have = sd && backup::sdBackupInfo(created);
+  int y = top + 84;
+  if (!sd) snprintf(b, sizeof(b), "No SD card inserted");
+  else if (!have) snprintf(b, sizeof(b), "No backup on the SD card yet");
+  else if (!created) snprintf(b, sizeof(b), "Backup on the SD card");
+  else { formatDate(d, sizeof(d), created, 0); snprintf(b, sizeof(b), "Last backup: %s", d); }
+  canvas.fillSmoothCircle(lx + 36, y, 7, have ? GOOD : sd ? WARN : STROKE);
+  text(b, lx + 54, y, F_LABEL, TEXT);
+  text("Settings and recipes. The Wi-Fi password is not included.", lx + 28, y + 34, F_AXIS, MUTED);
+  y += 82;
+  toggleRow(lx, y, lw, "Automatic backup", "To the SD card whenever something changes",
+            settings.autoBackup);
+  divider(lx, y + 41, lw);
+  y += 76;
+
+  const int bw = (lw - 56 - 16) / 2;
+  if (button(lx + 28, y, bw, 70, "Back up now", Btn::Primary, sd, F_LABEL)) {
+    restoreArmed = false;
+    if (backup::saveToSd()) { message = "Saved to the SD card."; messageBad = false; }
+    else { message = "Couldn't write to the SD card."; messageBad = true; }
+    savedNoteMs = millis();
+  }
+  if (button(lx + 28 + bw + 16, y, bw, 70, restoreArmed ? "Confirm restore" : "Restore", Btn::Danger,
+             have && !backup::restartPending(), F_LABEL)) {
+    if (!restoreArmed) {
+      restoreArmed = true;
+      message = "Replaces settings and recipes, then restarts.";
+      messageBad = false;
+      savedNoteMs = millis();
+    } else {
+      restoreArmed = false;
+      std::string err;
+      if (backup::restoreFromSd(&err)) { message = "Restored. Restarting..."; messageBad = false; backup::restartSoon(); }
+      else { message = err; messageBad = true; }
+      savedNoteMs = millis();
+    }
+  }
+  if (!message.empty() && (backup::restartPending() || restoreArmed || millis() - savedNoteMs < 4000))
+    text(message.c_str(), lx + 28, y + 104, F_BODY, messageBad ? BAD : (restoreArmed ? WARN : GOOD));
+  text("The web page can download a backup file and restore one", lx + 28, top + 540, F_AXIS, MUTED);
+  text("(Settings > Wi-Fi & web).", lx + 28, top + 564, F_AXIS, MUTED);
+
+  // --- about ---
+  const int rx = 644, rw = W - 24 - rx;
+  card(rx, top, rw, 600);
+  text("ABOUT", rx + 28, top + 34, F_LABEL, MUTED);
+  struct { const char* k; std::string v; } rows[4];
+  rows[0] = {"Firmware", diag::firmwareId()};
+  rows[1] = {"Display", blit::active() ? "Hardware rotation (PPA)" : "Software rotation"};
+  snprintf(b, sizeof(b), "%u", (unsigned)history::count());
+  rows[2] = {"Shots saved", sd ? b : "no SD card"};
+  snprintf(b, sizeof(b), "%llu MB", (unsigned long long)(storage::freeBytes() >> 20));
+  rows[3] = {"SD card free", sd ? b : "-"};
+  for (int i = 0; i < 4; i++) {
+    int ry = top + 96 + i * 62;
+    text(rows[i].k, rx + 28, ry, F_LABEL, MUTED);
+    text(rows[i].v.c_str(), rx + rw - 28, ry, F_LABEL, TEXT, textdatum_t::middle_right);
+    divider(rx, ry + 31, rw);
+  }
+  if (button(rx + 28, top + 600 - 98, rw - 56, 70, "Run first-time setup", Btn::Ghost, true, F_LABEL)) {
+    settings.configured = false;
+    settings.save();
+    setScreen(Screen::SetupWelcome);
+  }
 }
 
 void drawScan(bool setupMode) {

@@ -65,6 +65,16 @@ journal for an **Acaia Lunar** (also works with Pearl S, Pyxis and other Acaia s
 
 ![wifi](docs/wifi.png)
 
+**Backup**
+- Settings and recipes are backed up **automatically to the SD card** a few seconds after a
+  change (`/coffeescale/settings-backup.json`; never during a shot). The Wi‑Fi password is
+  not included.
+- Settings → **System**: backup status, *Back up now*, *Restore* (with confirmation), device info
+  and *Run first-time setup*. A fresh Tab5 with a backup on its card offers the restore right on
+  the welcome screen.
+- Web page → Download menu: *Download settings backup* and *Restore from a backup file*.
+  After a restore the display restarts.
+
 **Device**
 - First‑run setup wizard, auto reconnect when the scale is switched on, scale battery level
 - Two colour schemes: **Roast** (espresso brown + caramel) and **Racer** (black + racing red,
@@ -161,6 +171,7 @@ The preview server answers the same API as the Tab5, using the simulated SD card
 | `src/Brew.*` | Shot logic: stability, flow, auto tare, auto start/stop, dosing, drip learning, plot samples |
 | `src/Recipes.*` | Recipes with dose, ratio, time window, stop delay, threshold and pour‑over stages |
 | `src/DialIn.*` | Dial-in assistant: advice rules and the learned grind/time model |
+| `src/Backup.*` | Settings + recipes backup (JSON) to the SD card and via the web API |
 | `src/History.*` | Shot history on the SD card, ratings/notes, reference and ghost curves |
 | `src/Storage.*` | SD card access (SPI mode), insert/remove detection |
 | `src/Net.*` | Wi‑Fi (home or hotspot), mDNS, NTP and the web API (own task) |
@@ -183,6 +194,7 @@ The preview server answers the same API as the Tab5, using the simulated SD card
 | GET | `/api/shot.csv?id=N` | one shot's curve as CSV |
 | GET | `/api/export.json`, `/api/export.csv` | everything / summary of all shots |
 | POST | `/api/rate?id=N&stars=K`, `/api/reference?id=N`, `/api/delete?id=N` | change a shot |
+| GET / POST | `/api/backup` | download a settings backup / restore one (restarts the display) |
 
 ### Acaia protocol notes
 

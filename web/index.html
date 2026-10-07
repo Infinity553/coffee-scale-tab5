@@ -58,6 +58,12 @@ header .spacer { flex: 1; }
 .pop a { display: block; padding: 10px 12px; border-radius: 9px; color: var(--text); text-decoration: none; }
 .pop a:hover { background: var(--surface); }
 .pop small { display: block; color: var(--muted); }
+.pop-sep { margin: 6px 12px 2px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--muted);
+           font-size: 11.5px; text-transform: uppercase; letter-spacing: .12em; }
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 20;
+         background: var(--raised); border: 1px solid var(--line); border-radius: 999px;
+         padding: 10px 18px; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+.toast.bad { border-color: var(--danger); color: var(--danger); }
 
 /* overlay hero */
 .overlay {
@@ -179,6 +185,10 @@ dd { margin: 0; }
       <div class="pop" id="exportPop" role="menu">
         <a href="/api/export.csv" role="menuitem">Summary as CSV<small>One row per shot, for spreadsheets</small></a>
         <a href="/api/export.json" role="menuitem">Everything as JSON<small>All shots including their curves</small></a>
+        <div class="pop-sep inst">Settings</div>
+        <a href="/api/backup" role="menuitem">Download settings backup<small>Settings and recipes, without the Wi-Fi password</small></a>
+        <a href="#" id="restoreBtn" role="menuitem">Restore from a backup file<small>The display restarts afterwards</small></a>
+        <input type="file" id="restoreFile" accept=".json,application/json" hidden>
       </div>
     </div>
   </header>
@@ -588,6 +598,30 @@ let resizeTimer;
 window.addEventListener("resize", () => {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => { if (state.shots.length) renderOverlay(visibleShots()); }, 150);
+});
+
+// settings backup restore
+function toast(msg, bad) {
+  const t = document.createElement("div");
+  t.className = "toast" + (bad ? " bad" : "");
+  t.setAttribute("role", "status");
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 6000);
+}
+$("#restoreBtn").addEventListener("click", e => { e.preventDefault(); $("#restoreFile").click(); });
+$("#restoreFile").addEventListener("change", async e => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  if (!confirm(`Restore settings and recipes from "${file.name}"? The current settings are replaced and the display restarts.`)) return;
+  try {
+    const r = await fetch("/api/backup", { method: "POST", headers: { "Content-Type": "application/json" }, body: await file.text() });
+    const res = await r.json().catch(() => ({}));
+    if (!r.ok) return toast(res.error || "The backup couldn't be restored.", true);
+    toast("Restored. The display is restarting…");
+    setTimeout(() => location.reload(), 9000);
+  } catch { toast("Couldn't reach the display.", true); }
 });
 
 load();

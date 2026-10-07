@@ -1,5 +1,6 @@
 #include "Recipes.h"
 #include <Preferences.h>
+#include "Backup.h"
 #include "Settings.h"
 
 static const RecipeStage V60_STAGES[] = {
@@ -63,6 +64,7 @@ void save(int i) {
   snprintf(k, sizeof(k), "n%d", i); p.putString(k, list[i].name);
   snprintf(k, sizeof(k), "p%d", i); p.putBool(k, list[i].pourOver);
   p.end();
+  backup::markDirty();
 }
 
 const char* defaultName(int i) { return DEFAULTS[constrain(i, 0, COUNT - 1)].name; }

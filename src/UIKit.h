@@ -122,6 +122,7 @@ bool historyPartialUpdate(bool flashEnd, uint32_t& drawUs, uint32_t& pushUs);
 void drawWifi();
 void drawNetworks();
 void drawKeyboard();
+void drawSystem();
 // selectAll: the initial text starts selected, so typing replaces it (renaming).
 void openKeyboard(const char* title, const std::string& initial, size_t maxLen, bool secret,
                   std::function<void(const std::string&)> done, Screen returnTo,

@@ -109,7 +109,8 @@ Use a FAT32‑formatted microSD card. Shots go to `/coffeescale/` (`index.json` 
   use the IP address shown on the Wi‑Fi screen.
 - **Board variant**: `m5stack-tab5-p4` targets the ESP32‑P4 revisions shipped in the Tab5
   (pre rev 3.0). If a later Tab5 has a rev 3.x P4 and won't boot, change the board accordingly.
-- **UI speed**: the serial log prints frame times every 5 s (`[UI] ... avg draw / push`).
+- **UI speed**: the serial log prints frame times every 5 s (`[UI] ... avg draw / push`), and at boot
+  `[UI] display: PPA hardware rotation (self-test passed)` (or why it fell back to software).
 
 ## Desktop simulator
 
@@ -154,6 +155,7 @@ The preview server answers the same API as the Tab5, using the simulated SD card
 | `src/Storage.*` | SD card access (SPI mode), insert/remove detection |
 | `src/Net.*` | Wi‑Fi (home or hotspot), mDNS, NTP and the web API (own task) |
 | `src/UI.cpp` | Frame loop: partial redraws, rotation, touch, screen sleep |
+| `src/Blit.*` | ESP32‑P4 PPA: rotates the landscape UI into the portrait panel and fills large areas by DMA (self‑tested at boot, software fallback) |
 | `src/UIKit.*` | Widgets, icons, segment digits, plot |
 | `src/UIMain.cpp` | Main screen and shot summary |
 | `src/UIHistory.cpp`, `src/UIScreens.cpp`, `src/UINet.cpp` | History, settings/setup/recipes, Wi‑Fi and keyboard |

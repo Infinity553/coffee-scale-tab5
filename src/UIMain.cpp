@@ -22,7 +22,7 @@ static bool summarySaved = false;
 static ShotMeta summary;
 static int lastStage = -1;
 
-static void clearRect(const Rect& r) { canvas.fillRect(r.x, r.y, r.w, r.h, BG); }
+static void clearRect(const Rect& r) { fillRectFast(r.x, r.y, r.w, r.h, BG); }
 
 static void arrowRight(int x, int cy, uint16_t c) {
   canvas.drawWideLine(x, cy, x + 16, cy, 1.4f, c);

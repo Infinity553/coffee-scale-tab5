@@ -8,6 +8,7 @@
 //   SIM_NO_SD=1          behave as if no SD card is inserted
 //   SIM_TAP=x,y@sec      tap at logical coordinates after sec seconds (repeat with ;)
 //   SIM_SNAPS=2,10,25    save PNG screenshots to sim/out at these seconds, then exit
+//   SIM_FASTFILL=1       use the Tab5's fast card/fill drawing path
 #include <M5Unified.h>
 #include <cstdlib>
 #include <ctime>
@@ -21,6 +22,7 @@
 #include "Recipes.h"
 #include "Settings.h"
 #include "UI.h"
+#include "UIKit.h"
 
 static std::vector<float> snaps;
 static size_t nextSnap = 0;
@@ -85,6 +87,7 @@ void setup() {
   recipes::load();
   brew.begin();
   ui::begin();
+  if (getenv("SIM_FASTFILL")) ui::setFastFill(true);   // test the Tab5 card/fill path
   scale.begin();
   history::begin();
   net::begin();

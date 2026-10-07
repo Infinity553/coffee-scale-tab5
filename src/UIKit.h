@@ -47,6 +47,8 @@ void textFit(const char* s, int x, int y, int maxW, const lgfx::IFont* f, uint16
 // --- widgets ---
 enum class Btn { Primary, Secondary, Ghost, Danger };
 void card(int x, int y, int w, int h, uint16_t bg = SURFACE);
+void fillRectFast(int x, int y, int w, int h, uint16_t c);   // DMA fill for large areas
+void setFastFill(bool on);
 bool hit(int x, int y, int w, int h);
 bool flashing(int x, int y);
 bool button(int x, int y, int w, int h, const char* label, Btn style = Btn::Secondary,

@@ -151,6 +151,15 @@ bool fill(void* buf, size_t bufSize, int picW, int picH, int x, int y, int w, in
     cfg.max_pending_trans_num = 1;
     if (ppa_register_client(&cfg, &fillClient) != ESP_OK) return false;
   }
+  // The CPU may hold cached pixels of these rows: write them back and drop them,
+  // so nothing stale overwrites the DMA fill later. Invalidating needs whole
+  // cache lines, so round the span out to 64 bytes.
+  uintptr_t a = (uintptr_t)buf + ((size_t)y * picW + x) * 2;
+  uintptr_t e = (uintptr_t)buf + ((size_t)(y + h - 1) * picW + x + w) * 2;
+  a &= ~(uintptr_t)63;
+  e = (e + 63) & ~(uintptr_t)63;
+  esp_cache_msync((void*)a, e - a, ESP_CACHE_MSYNC_FLAG_DIR_C2M | ESP_CACHE_MSYNC_FLAG_INVALIDATE);
+
   ppa_fill_oper_config_t op = {};
   op.out.buffer = buf;
   op.out.buffer_size = bufSize;

@@ -312,7 +312,7 @@ static bool inside(const Rect& r, int x, int y) {
   return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
 }
 
-static void clearRect(const Rect& r) { canvas.fillRect(r.x, r.y, r.w, r.h, BG); }
+static void clearRect(const Rect& r) { fillRectFast(r.x, r.y, r.w, r.h, BG); }
 
 bool historyPartialUpdate(bool flashEnd, uint32_t& drawUs, uint32_t& pushUs) {
   if (!history::available()) return false;

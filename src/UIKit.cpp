@@ -1,6 +1,7 @@
 #include "UIKit.h"
 #include <ctime>
 #include "AcaiaScale.h"
+#include "Blit.h"
 #include "Recipes.h"
 #include "Settings.h"
 
@@ -57,9 +58,51 @@ void textFit(const char* s, int x, int y, int maxW, const lgfx::IFont* f, uint16
 // ---------------------------------------------------------------------------
 // widgets
 // ---------------------------------------------------------------------------
+// --- fast fills ---------------------------------------------------------------
+// Large solid areas are filled by the PPA (DMA, ~5x faster than the CPU writing
+// to PSRAM). Only possible when the canvas is landscape, unrotated and aligned.
+static bool fastFillOn = false;
+void setFastFill(bool on) { fastFillOn = on; }
+
+void fillRectFast(int x, int y, int w, int h, uint16_t c) {
+  if (x < 0) { w += x; x = 0; }
+  if (y < 0) { h += y; y = 0; }
+  if (x + w > W) w = W - x;
+  if (y + h > H) h = H - y;
+  if (w <= 0 || h <= 0) return;
+  if (fastFillOn && w * h >= 4096 &&
+      blit::fill(canvas.getBuffer(), (size_t)W * H * 2, W, H, x, y, w, h, c))
+    return;
+  canvas.fillRect(x, y, w, h, c);
+}
+
 void card(int x, int y, int w, int h, uint16_t bg) {
-  canvas.fillSmoothRoundRect(x, y, w, h, 22, STROKE);
-  canvas.fillSmoothRoundRect(x + 1, y + 1, w - 2, h - 2, 21, bg);
+  const int r = 22;
+  if (!fastFillOn || w < 3 * r || h < 3 * r) {
+    canvas.fillSmoothRoundRect(x, y, w, h, r, STROKE);
+    canvas.fillSmoothRoundRect(x + 1, y + 1, w - 2, h - 2, r - 1, bg);
+    return;
+  }
+  // interior by DMA, 1 px border by the CPU
+  fillRectFast(x + 1, y + r, w - 2, h - 2 * r, bg);
+  fillRectFast(x + r, y + 1, w - 2 * r, r - 1, bg);
+  fillRectFast(x + r, y + h - r, w - 2 * r, r - 1, bg);
+  canvas.drawFastHLine(x + r, y, w - 2 * r, STROKE);
+  canvas.drawFastHLine(x + r, y + h - 1, w - 2 * r, STROKE);
+  canvas.drawFastVLine(x, y + r, h - 2 * r, STROKE);
+  canvas.drawFastVLine(x + w - 1, y + r, h - 2 * r, STROKE);
+  // anti-aliased corners: a small rounded square, clipped to each corner
+  const int s = 2 * r + 2;
+  const int cx[4] = {x, x + w - r, x, x + w - r};
+  const int cy[4] = {y, y, y + h - r, y + h - r};
+  const int ox[4] = {x, x + w - s, x, x + w - s};
+  const int oy[4] = {y, y, y + h - s, y + h - s};
+  for (int i = 0; i < 4; i++) {
+    canvas.setClipRect(cx[i], cy[i], r, r);
+    canvas.fillSmoothRoundRect(ox[i], oy[i], s, s, r, STROKE);
+    canvas.fillSmoothRoundRect(ox[i] + 1, oy[i] + 1, s - 2, s - 2, r - 1, bg);
+  }
+  canvas.clearClipRect();
 }
 
 bool hit(int x, int y, int w, int h) {
@@ -357,16 +400,12 @@ void iconStar(int cx, int cy, int r, bool filled, uint16_t c) {
     px[i] = cx + cosf(a) * rr;
     py[i] = cy + sinf(a) * rr;
   }
-  if (filled) {
-    for (int i = 0; i < 10; i++) {
-      int j = (i + 1) % 10;
-      canvas.fillTriangle(cx, cy, px[i], py[i], px[j], py[j], c);
-    }
-  } else {
-    for (int i = 0; i < 10; i++) {
-      int j = (i + 1) % 10;
-      canvas.drawWideLine(px[i], py[i], px[j], py[j], 1.2f, c);
-    }
+  // solid in both states (an empty star is drawn in a dim colour by the caller):
+  // outlines took 10 anti-aliased lines per star, which made lists slow
+  (void)filled;
+  for (int i = 0; i < 10; i++) {
+    int j = (i + 1) % 10;
+    canvas.fillTriangle(cx, cy, px[i], py[i], px[j], py[j], c);
   }
 }
 
@@ -528,7 +567,7 @@ void drawPlotArea(int px, int py, int pw, int ph, const BrewSample* s, int n, fl
       float w, f;
       if (!curveAt(g, gn, (float)c / pw * tMax, gi, w, f)) break;
       int xx = px + c, yy = Yw(w);
-      if (prevX >= 0) canvas.drawWideLine(prevX, prevY, xx, yy, 1.3f, MUTED);
+      if (prevX >= 0) canvas.drawLine(prevX, prevY, xx, yy, MUTED);
       prevX = xx; prevY = yy;
     }
   }
@@ -554,19 +593,32 @@ void drawPlotArea(int px, int py, int pw, int ph, const BrewSample* s, int n, fl
       int y0 = max(yw, bandY[k]);
       canvas.fillRect(xx, y0, 2, bandY[k + 1] - y0, bandC[k]);
     }
-    if (prevX >= 0) canvas.drawWideLine(prevX, prevYf, xx, yf, 1.4f, flowC);
+    if (prevX >= 0) {   // 2 px plain line: AA lines are costly
+      canvas.drawLine(prevX, prevYf, xx, yf, flowC);
+      canvas.drawLine(prevX, prevYf + 1, xx, yf + 1, flowC);
+    }
     prevX = xx; prevYf = yf;
   }
   // weight line on top
   int prevYw = 0;
   prevX = -1;
   i = 0;
-  for (int c = 0; c <= lastCol; c += 2) {
+  for (int c = 0; c <= lastCol; c += 3) {
     float w, f;
     if (!curveAt(s, n, (float)c / pw * tMax, i, w, f)) break;
     int xx = px + c, yw = Yw(w);
     if (prevX >= 0) canvas.drawWideLine(prevX, prevYw, xx, yw, 2.6f, lineC);
     prevX = xx; prevYw = yw;
+  }
+  // make sure the line reaches the newest sample
+  if (prevX >= 0 && prevX < px + lastCol) {
+    float w, f;
+    int j = 0;
+    if (curveAt(s, n, (float)lastCol / pw * tMax, j, w, f)) {
+      int yw = Yw(w);
+      canvas.drawWideLine(prevX, prevYw, px + lastCol, yw, 2.6f, lineC);
+      prevX = px + lastCol; prevYw = yw;
+    }
   }
   if (prevX >= 0 && o.liveMarker) {
     canvas.fillSmoothCircle(prevX, prevYw, 11, ACCENT_LO);

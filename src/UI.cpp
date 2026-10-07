@@ -6,6 +6,9 @@
 #include "Net.h"
 #include "Settings.h"
 #include "UIKit.h"
+#if defined(ESP_PLATFORM)
+#include <esp_heap_caps.h>
+#endif
 
 namespace ui {
 
@@ -99,7 +102,20 @@ void begin() {
   // same pixel format as the panel frame buffer -> no conversion on push
   canvas.setColorDepth(M5.Display.getColorDepth());
   canvas.setPsram(true);
-  hwRotation = blit::begin(nativeW, nativeH) && canvas.createSprite(nativeH, nativeW);
+  hwRotation = false;
+#if defined(ESP_PLATFORM)
+  if (blit::begin(nativeW, nativeH)) {
+    // landscape canvas, 64-byte aligned so the PPA can also fill areas in it
+    size_t bytes = (size_t)nativeW * nativeH * 2;
+    void* buf = heap_caps_aligned_alloc(64, bytes, MALLOC_CAP_SPIRAM);
+    if (buf) {
+      memset(buf, 0, bytes);
+      canvas.setBuffer(buf, nativeH, nativeW);
+      hwRotation = true;
+    }
+  }
+#endif
+  setFastFill(hwRotation);
   if (!hwRotation && !canvas.createSprite(nativeW, nativeH)) log_e("canvas allocation failed");
   canvas.setTextWrap(false);
   applyDisplaySettings();
@@ -269,7 +285,7 @@ void update() {
 
   uint32_t t0 = micros();
   dirty = false;
-  canvas.fillScreen(BG);
+  fillRectFast(0, 0, W, H, BG);
   drawScreen();
   clearTap();
   if (current != Screen::Main) lastScreenSig = screenSignature();

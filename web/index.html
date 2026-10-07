@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shot journal</title>
+<style>
+:root, [data-scheme="roast"] {
+  --bg: #17100c; --surface: #221811; --raised: #2f2118; --line: #42301f; --grid: #2c2018;
+  --accent: #c88a4e; --accent-hi: #e7b47e; --accent-lo: rgba(200,138,78,.18);
+  --on-accent: #17100c; --text: #f6ecdf; --muted: #9e8774; --flow: #d8c6b0;
+  --trace: rgba(231,180,126,.16); --star: #e7b47e; --danger: #e07a68;
+}
+[data-scheme="racer"] {
+  --bg: #000; --surface: #0f0f10; --raised: #1b1b1d; --line: #2b2b2e; --grid: #19191b;
+  --accent: #d31f2a; --accent-hi: #ff4a52; --accent-lo: rgba(211,31,42,.18);
+  --on-accent: #fff; --text: #f2f2f2; --muted: #8c8c90; --flow: #b8bcc4;
+  --trace: rgba(184,188,196,.14); --star: #e8e9ec; --danger: #ff7a45;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.inst {  /* instrument face: labels and figures */
+  font-family: "DIN Alternate", "DIN Condensed", Bahnschrift, "D-DIN", "Roboto Condensed",
+               "Arial Narrow", system-ui, sans-serif;
+  font-variant-numeric: tabular-nums; letter-spacing: .02em;
+}
+button, a.btn { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent-hi); outline-offset: 2px; border-radius: 6px; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 20px 64px; }
+
+/* header */
+header { display: flex; align-items: center; gap: 14px; padding: 22px 0 18px; }
+.mark { width: 34px; height: 34px; color: var(--accent); flex: none; }
+header h1 { font-size: 22px; margin: 0; font-weight: 700; letter-spacing: .01em; }
+header .sub { color: var(--muted); font-size: 13px; }
+header .spacer { flex: 1; }
+.menu { position: relative; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer; text-decoration: none;
+  background: var(--raised); border: 1px solid var(--line); border-radius: 999px;
+  padding: 8px 16px; font-size: 14px; white-space: nowrap;
+}
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+.btn.primary:hover { background: var(--accent-hi); border-color: var(--accent-hi); }
+.btn.danger { color: var(--danger); }
+.btn svg { width: 16px; height: 16px; }
+.pop {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 5; min-width: 220px;
+  background: var(--raised); border: 1px solid var(--line); border-radius: 14px; padding: 6px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.45); display: none;
+}
+.pop.open { display: block; }
+.pop a { display: block; padding: 10px 12px; border-radius: 9px; color: var(--text); text-decoration: none; }
+.pop a:hover { background: var(--surface); }
+.pop small { display: block; color: var(--muted); }
+
+/* overlay hero */
+.overlay {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 22px;
+  padding: 18px 20px 14px; position: relative; overflow: hidden;
+}
+.overlay-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.eyebrow { text-transform: uppercase; color: var(--muted); font-size: 12.5px; letter-spacing: .12em; }
+.overlay-head .legend { margin-left: auto; display: flex; gap: 16px; color: var(--muted); font-size: 13px; }
+.legend i { display: inline-block; width: 18px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+#overlay svg { display: block; width: 100%; margin-top: 6px; }
+.stats { display: flex; gap: 26px; flex-wrap: wrap; margin-top: 6px; color: var(--muted); font-size: 14px; }
+.stats b { color: var(--text); font-weight: 600; margin-right: 4px; }
+
+/* toolbar */
+.toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 26px 0 14px; }
+.seg { display: inline-flex; background: var(--raised); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+.seg button {
+  border: 0; background: none; padding: 7px 16px; border-radius: 999px; cursor: pointer; color: var(--muted);
+}
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip {
+  border: 1px solid var(--line); background: none; border-radius: 999px; padding: 6px 13px;
+  color: var(--muted); cursor: pointer; font-size: 13.5px;
+}
+.chip[aria-pressed="true"] { color: var(--text); border-color: var(--accent); }
+.toolbar .count { margin-left: auto; color: var(--muted); font-size: 13.5px; }
+
+/* grid */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(258px, 1fr)); gap: 14px; }
+.card {
+  text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 18px;
+  padding: 14px 16px 14px; cursor: pointer; display: flex; flex-direction: column; gap: 8px;
+  transition: border-color .15s, transform .15s;
+}
+.card:hover, .card:focus-visible { border-color: var(--accent); transform: translateY(-2px); }
+.card .top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.card .when { font-size: 14px; font-weight: 600; }
+.badge { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; white-space: nowrap; }
+.badge.ref { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+.card svg.spark { width: 100%; height: 64px; display: block; }
+.figs { display: flex; gap: 18px; align-items: flex-end; }
+.fig .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
+.fig svg { display: block; height: 26px; }
+.card .foot { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 13px; }
+.stars { display: inline-flex; gap: 2px; }
+.stars svg { width: 15px; height: 15px; }
+
+/* empty */
+.empty { text-align: center; padding: 70px 20px; color: var(--muted); border: 1px dashed var(--line); border-radius: 22px; }
+.empty h2 { color: var(--text); font-size: 19px; margin: 12px 0 6px; }
+
+/* detail dialog */
+dialog {
+  width: min(920px, calc(100vw - 24px)); max-height: calc(100vh - 24px); padding: 0;
+  background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 24px;
+}
+dialog::backdrop { background: rgba(0,0,0,.6); backdrop-filter: blur(2px); }
+.d-head { display: flex; align-items: flex-start; gap: 12px; padding: 22px 24px 6px; }
+.d-head h2 { margin: 0; font-size: 21px; }
+.d-head .close { margin-left: auto; width: 38px; height: 38px; justify-content: center; padding: 0; }
+.d-figs { display: flex; gap: 36px; flex-wrap: wrap; padding: 10px 24px 4px; }
+.d-figs .fig svg { height: 46px; }
+.d-figs .unit { color: var(--muted); font-size: 15px; margin-left: 6px; }
+.d-figs .figrow { display: flex; align-items: flex-end; }
+.chart { padding: 6px 12px 0 8px; position: relative; }
+.chart svg { width: 100%; height: auto; display: block; touch-action: none; }
+.readout {
+  position: absolute; top: 8px; right: 22px; background: var(--raised); border: 1px solid var(--line);
+  border-radius: 10px; padding: 4px 10px; font-size: 13px; color: var(--muted); pointer-events: none;
+  opacity: 0; transition: opacity .1s;
+}
+.readout b { color: var(--text); font-weight: 600; }
+.d-body { display: grid; grid-template-columns: 1.2fr 1fr; gap: 22px; padding: 14px 24px 24px; }
+dl { display: grid; grid-template-columns: auto 1fr; gap: 8px 18px; margin: 0; }
+dt { color: var(--muted); }
+dd { margin: 0; }
+.rate { display: flex; gap: 4px; }
+.rate button { background: none; border: 0; padding: 4px; cursor: pointer; }
+.rate svg { width: 26px; height: 26px; }
+.notes { color: var(--muted); font-style: italic; margin: 10px 0 0; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; align-content: flex-start; }
+.hint { color: var(--muted); font-size: 13px; margin-top: 8px; width: 100%; }
+
+@media (max-width: 640px) {
+  .wrap { padding: 0 14px 48px; }
+  header h1 { font-size: 19px; }
+  .d-body { grid-template-columns: 1fr; }
+  .d-figs { gap: 22px; }
+  .d-figs .fig svg { height: 36px; }
+  .overlay-head .legend { margin-left: 0; width: 100%; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 1.1s ease-out forwards; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <svg class="mark" viewBox="0 0 34 34" aria-hidden="true">
+      <rect x="4" y="13" width="20" height="16" rx="5" fill="currentColor"/>
+      <circle cx="25" cy="20" r="5.5" fill="none" stroke="currentColor" stroke-width="3"/>
+      <rect x="9" y="3" width="3" height="7" rx="1.5" fill="currentColor"/>
+      <rect x="14.5" y="1" width="3" height="9" rx="1.5" fill="currentColor"/>
+    </svg>
+    <div>
+      <h1>Shot journal</h1>
+      <div class="sub" id="sub">Connecting to your scale…</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="menu">
+      <button class="btn" id="exportBtn" aria-haspopup="true" aria-expanded="false">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 2v8M4.5 6.5 8 10l3.5-3.5M3 13h10"/></svg>
+        Download all
+      </button>
+      <div class="pop" id="exportPop" role="menu">
+        <a href="/api/export.csv" role="menuitem">Summary as CSV<small>One row per shot, for spreadsheets</small></a>
+        <a href="/api/export.json" role="menuitem">Everything as JSON<small>All shots including their curves</small></a>
+      </div>
+    </div>
+  </header>
+
+  <section class="overlay" id="overlayCard" hidden>
+    <div class="overlay-head">
+      <span class="eyebrow inst" id="overlayTitle">Every shot, overlaid</span>
+      <div class="legend inst">
+        <span><i style="background:var(--accent)"></i><span id="hlLabel">Reference</span></span>
+        <span><i style="background:var(--trace);height:5px"></i>Other shots</span>
+      </div>
+    </div>
+    <div id="overlay"></div>
+    <div class="stats inst" id="stats"></div>
+  </section>
+
+  <div class="toolbar" id="toolbar" hidden>
+    <div class="seg" role="group" aria-label="Sort shots">
+      <button data-sort="recent" aria-pressed="true">Most recent</button>
+      <button data-sort="rating" aria-pressed="false">Rating</button>
+    </div>
+    <div class="chips" id="chips"></div>
+    <span class="count inst" id="count"></span>
+  </div>
+
+  <main id="grid" class="grid"></main>
+  <div id="empty" class="empty" hidden></div>
+</div>
+
+<dialog id="detail" aria-labelledby="dTitle">
+  <div class="d-head">
+    <div>
+      <div class="eyebrow inst" id="dRecipe"></div>
+      <h2 id="dTitle"></h2>
+    </div>
+    <button class="btn close" id="dClose" aria-label="Close">✕</button>
+  </div>
+  <div class="d-figs" id="dFigs"></div>
+  <div class="chart" id="dChart"><div class="readout inst" id="readout"></div></div>
+  <div class="d-body">
+    <div>
+      <dl id="dMeta"></dl>
+      <p class="notes" id="dNotes"></p>
+    </div>
+    <div>
+      <div class="eyebrow inst" style="margin-bottom:6px">Your rating</div>
+      <div class="rate" id="dRate"></div>
+      <div class="eyebrow inst" style="margin:18px 0 8px">Shot</div>
+      <div class="actions">
+        <a class="btn" id="dJson">Download JSON</a>
+        <a class="btn" id="dCsv">Download CSV</a>
+        <button class="btn" id="dRef"></button>
+        <button class="btn danger" id="dDel">Delete shot</button>
+        <div class="hint" id="dHint"></div>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const state = { info: null, shots: [], sort: "recent", recipe: null, current: null, refCurve: null };
+
+// ---- segment digits: same geometry as the Tab5 display ----
+const SEG = [0x3F,0x06,0x5B,0x4F,0x66,0x6D,0x7D,0x07,0x7F,0x6F];
+function segSvg(str, cls = "") {
+  const h = 100, t = h * .115, cw = h * .5, g = Math.max(1.5, t * .16), sp = h * .11, r = t / 2;
+  const width = c => /\d/.test(c) ? cw : c === "-" ? h * .45 : (c === "." || c === ":") ? h * .16 : h * .3;
+  let x = 0, out = "";
+  const rect = (rx, ry, w, hh) => out += `<rect x="${rx.toFixed(1)}" y="${ry.toFixed(1)}" width="${w.toFixed(1)}" height="${hh.toFixed(1)}" rx="${r}"/>`;
+  for (const c of str) {
+    if (/\d/.test(c)) {
+      const m = SEG[+c], hs = cw - t - 2 * g, vs = h / 2 - t / 2 - 2 * g;
+      if (m & 1) rect(x + t / 2 + g, 0, hs, t);
+      if (m & 2) rect(x + cw - t, t / 2 + g, t, vs);
+      if (m & 4) rect(x + cw - t, h / 2 + g, t, vs);
+      if (m & 8) rect(x + t / 2 + g, h - t, hs, t);
+      if (m & 16) rect(x, h / 2 + g, t, vs);
+      if (m & 32) rect(x, t / 2 + g, t, vs);
+      if (m & 64) rect(x + t / 2 + g, h / 2 - t / 2, hs, t);
+    } else if (c === "-") rect(x, h / 2 - t / 2, h * .45, t);
+    else if (c === ".") out += `<circle cx="${x + h * .08}" cy="${h - t * .6}" r="${t * .62}"/>`;
+    else if (c === ":") out += `<circle cx="${x + h * .08}" cy="${h * .3}" r="${t * .55}"/><circle cx="${x + h * .08}" cy="${h * .72}" r="${t * .55}"/>`;
+    x += width(c) + sp;
+  }
+  const w = Math.max(1, x - sp);
+  return `<svg class="${cls}" viewBox="0 0 ${w.toFixed(1)} ${h}" style="aspect-ratio:${(w / h).toFixed(3)}" fill="currentColor" aria-hidden="true">${out}</svg>`;
+}
+
+// ---- formatting ----
+const fmtTime = s => { if (!(s > 0)) return "0:00.0"; const m = Math.floor(s / 60); return `${m}:${(s - m * 60).toFixed(1).padStart(4, "0")}`; };
+const ratio = m => m.dose > 0 ? m.yield / m.dose : 0;
+const dateFmt = new Intl.DateTimeFormat(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const whenOf = m => m.time ? dateFmt.format(new Date(m.time * 1000)) : `Shot #${m.id}`;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const starPath = "M12 2.6l2.9 6 6.5.8-4.8 4.5 1.2 6.5L12 17.3l-5.8 3.1 1.2-6.5L2.6 9.4l6.5-.8z";
+const star = (on, off = "var(--line)") =>
+  `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${starPath}" fill="${on ? "var(--star)" : "none"}" stroke="${on ? "var(--star)" : off}" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+const stars = n => Array.from({ length: 5 }, (_, i) => star(i < n)).join("");
+
+// ---- smooth path through points (Catmull-Rom as cubic Béziers) ----
+function pathOf(pts) {
+  if (pts.length < 2) return "";
+  const f = v => v.toFixed(1);
+  let d = `M${f(pts[0][0])},${f(pts[0][1])}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += ` C${f(c1[0])},${f(c1[1])} ${f(c2[0])},${f(c2[1])} ${f(p2[0])},${f(p2[1])}`;
+  }
+  return d;
+}
+const sparkPts = (m, W, H, tMax, wMax, pad = 3) => (m.spark || []).map((w, i, a) => [
+  pad + (m.duration * i / Math.max(1, a.length - 1)) / tMax * (W - 2 * pad),
+  H - pad - Math.max(0, w) / wMax * (H - 2 * pad)]);
+
+// ---- API ----
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  if (!r.ok) { const e = new Error(r.status); e.status = r.status; throw e; }
+  return r.json();
+}
+
+async function load() {
+  try {
+    state.info = await api("/api/info");
+    document.documentElement.dataset.scheme = state.info.scheme;
+    if (!state.info.sd) return showEmpty("sd");
+    const data = await api("/api/shots");
+    state.shots = data.shots || [];
+    render();
+  } catch (e) {
+    if (e.status === 503) return showEmpty("sd");
+    showEmpty("offline");
+  }
+}
+
+function showEmpty(kind) {
+  $("#overlayCard").hidden = $("#toolbar").hidden = true;
+  $("#grid").innerHTML = "";
+  const msgs = {
+    sd: ["Insert an SD card to keep your shots", "Shot history is saved on the Tab5's microSD card. Insert a card and your next shot shows up here."],
+    none: ["No shots yet", "Pull a shot with the scale connected. It's saved here automatically when the shot finishes."],
+    offline: ["Can't reach the scale display", "Make sure the Tab5 is on and this device is on the same network, then reload the page."],
+  };
+  const [h, p] = msgs[kind];
+  $("#sub").textContent = state.info ? `${state.info.name} · ${state.info.recipe}` : "Not connected";
+  const el = $("#empty");
+  el.hidden = false;
+  el.innerHTML = `<svg width="46" height="46" viewBox="0 0 34 34" style="color:var(--accent)"><rect x="4" y="13" width="20" height="16" rx="5" fill="currentColor"/><circle cx="25" cy="20" r="5.5" fill="none" stroke="currentColor" stroke-width="3"/></svg><h2>${h}</h2><p>${p}</p>`;
+}
+
+// ---- overview ----
+function visibleShots() {
+  let v = state.shots.slice();
+  if (state.recipe) v = v.filter(m => m.recipe === state.recipe);
+  v.sort(state.sort === "rating"
+    ? (a, b) => (b.rating - a.rating) || (b.id - a.id)
+    : (a, b) => b.id - a.id);
+  return v;
+}
+
+function highlightShot() {
+  const ref = state.shots.find(m => m.id === state.info.ref);
+  if (ref) return [ref, "Reference"];
+  const best = state.shots.slice().sort((a, b) => (b.rating - a.rating) || (b.id - a.id))[0];
+  return [best, best && best.rating ? "Best rated" : "Latest shot"];
+}
+
+function render() {
+  const all = state.shots;
+  $("#sub").textContent = `${state.info.name} · ${all.length} shot${all.length === 1 ? "" : "s"} saved`;
+  if (!all.length) return showEmpty("none");
+  $("#empty").hidden = true;
+  $("#overlayCard").hidden = $("#toolbar").hidden = false;
+
+  // recipe filter chips
+  const recipes = [...new Set(all.map(m => m.recipe).filter(Boolean))];
+  $("#chips").innerHTML = recipes.length > 1 ? [null, ...recipes].map(r =>
+    `<button class="chip" data-recipe="${r ? esc(r) : ""}" aria-pressed="${state.recipe === r}">${r ? esc(r) : "All recipes"}</button>`).join("") : "";
+
+  const shots = visibleShots();
+  $("#count").textContent = `${shots.length} shown`;
+  renderOverlay(shots);
+
+  // each recipe gets its own scale so espresso and pour-over both read well
+  const scales = {};
+  for (const m of all) {
+    const s = scales[m.recipe] || (scales[m.recipe] = { t: 30, w: 20 });
+    s.t = Math.max(s.t, m.duration || 0);
+    s.w = Math.max(s.w, (m.yield || 0) * 1.1);
+  }
+  $("#grid").innerHTML = shots.map(m => {
+    const sc = scales[m.recipe];
+    const pts = sparkPts(m, 260, 64, sc.t, sc.w);
+    const line = pathOf(pts);
+    const area = line ? `${line} L${pts[pts.length - 1][0].toFixed(1)},64 L${pts[0][0].toFixed(1)},64Z` : "";
+    const r = ratio(m);
+    return `<button class="card" data-id="${m.id}">
+      <div class="top"><span class="when">${esc(whenOf(m))}</span>
+        <span class="badge ${m.id === state.info.ref ? "ref" : ""}">${m.id === state.info.ref ? "Reference" : esc(m.recipe || "Shot")}</span></div>
+      <svg class="spark" viewBox="0 0 260 64" preserveAspectRatio="none" aria-hidden="true">
+        <path d="${area}" fill="var(--accent-lo)"/><path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2.2" vector-effect="non-scaling-stroke"/></svg>
+      <div class="figs">
+        <div class="fig"><div class="lbl inst">Yield g</div>${segSvg((m.yield || 0).toFixed(1))}</div>
+        <div class="fig"><div class="lbl inst">Time</div>${segSvg(fmtTime(m.duration))}</div>
+        ${r ? `<div class="fig"><div class="lbl inst">Ratio</div><div class="inst" style="font-size:20px;line-height:26px">1:${r.toFixed(1)}</div></div>` : ""}
+      </div>
+      <div class="foot"><span class="stars" aria-label="${m.rating} of 5 stars">${stars(m.rating)}</span>
+        <span class="inst">${m.dose > 0 ? `${m.dose.toFixed(1)} g in` : ""}${m.grind >= 0 ? ` · grind ${m.grind}` : ""}</span></div>
+    </button>`;
+  }).join("");
+}
+
+function renderOverlay(visible) {
+  // draw at the real pixel size so text and strokes stay undistorted
+  const W = Math.max(280, $("#overlay").clientWidth || 1000), H = W < 600 ? 170 : 220;
+  let [hl, label] = highlightShot();
+  // overlay one recipe at a time: the filtered one, else the highlighted shot's
+  const recipe = state.recipe || (hl && hl.recipe);
+  const shots = visible.filter(m => m.recipe === recipe);
+  if (hl && hl.recipe !== recipe) { hl = shots[0]; label = "Latest shot"; }
+  $("#hlLabel").textContent = label;
+  $("#overlayTitle").textContent = recipe ? `Every ${recipe.toLowerCase()} shot, overlaid` : "Every shot, overlaid";
+  const tMax = Math.max(30, ...shots.map(m => m.duration || 0)) * 1.04;
+  const wMax = Math.max(20, ...shots.map(m => m.yield || 0)) * 1.12;
+  let grid = "";
+  const step = wMax > 120 ? 50 : wMax > 60 ? 20 : 10;
+  for (let v = step; v < wMax; v += step) {
+    const y = H - 6 - v / wMax * (H - 12);
+    grid += `<line x1="0" x2="${W}" y1="${y}" y2="${y}" stroke="var(--grid)"/><text x="4" y="${y - 4}" fill="var(--muted)" font-size="12" class="inst">${v} g</text>`;
+  }
+  const traces = shots.filter(m => m !== hl).slice(0, 80).map(m =>
+    `<path data-id="${m.id}" d="${pathOf(sparkPts(m, W, H, tMax, wMax, 6))}" fill="none" stroke="var(--trace)" stroke-width="2.4" vector-effect="non-scaling-stroke"/>`).join("");
+  const hlPath = hl ? `<path class="draw" pathLength="1" d="${pathOf(sparkPts(hl, W, H, tMax, wMax, 6))}" fill="none" stroke="var(--accent)" stroke-width="3.2" vector-effect="non-scaling-stroke"/>` : "";
+  $("#overlay").innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="height:${H}px" role="img" aria-label="Weight curves of ${shots.length} shots">${grid}${traces}<g id="hover"></g>${hlPath}</svg>`;
+
+  const rated = shots.filter(m => m.rating);
+  const avg = f => shots.length ? shots.reduce((s, m) => s + f(m), 0) / shots.length : 0;
+  const withDose = shots.filter(m => m.dose > 0);
+  $("#stats").innerHTML = [
+    `<span><b>${fmtTime(avg(m => m.duration))}</b>average time</span>`,
+    `<span><b>${avg(m => m.yield).toFixed(1)} g</b>average yield</span>`,
+    withDose.length ? `<span><b>1:${(withDose.reduce((s, m) => s + ratio(m), 0) / withDose.length).toFixed(1)}</b>average ratio</span>` : "",
+    rated.length ? `<span><b>${(rated.reduce((s, m) => s + m.rating, 0) / rated.length).toFixed(1)}★</b>average rating</span>` : "",
+  ].join("");
+}
+
+// hovering a card lights up its trace in the overlay
+function hoverTrace(id) {
+  const g = $("#hover");
+  if (!g) return;
+  const src = id && document.querySelector(`#overlay path[data-id="${id}"]`);
+  g.innerHTML = src ? `<path d="${src.getAttribute("d")}" fill="none" stroke="var(--accent-hi)" stroke-width="2.6" vector-effect="non-scaling-stroke" opacity=".9"/>` : "";
+}
+
+// ---- detail ----
+async function openDetail(id) {
+  const m = state.shots.find(s => s.id === id);
+  if (!m) return;
+  state.current = m;
+  $("#dRecipe").textContent = m.recipe || "Shot";
+  $("#dTitle").textContent = whenOf(m);
+  const r = ratio(m);
+  $("#dFigs").innerHTML = [
+    ["Time", fmtTime(m.duration), ""], ["Yield", (m.yield || 0).toFixed(1), "g"],
+    ...(r ? [["Ratio", r.toFixed(1), ""]] : []),
+  ].map(([l, v, u]) => `<div class="fig"><div class="lbl inst">${l}</div><div class="figrow">${l === "Ratio" ? `<span class="inst" style="font-size:40px;line-height:46px;margin-right:4px">1:</span>` : ""}${segSvg(v)}${u ? `<span class="unit inst">${u}</span>` : ""}</div></div>`).join("");
+  const row = (k, v) => v ? `<dt>${k}</dt><dd class="inst">${v}</dd>` : "";
+  $("#dMeta").innerHTML = row("Dose", m.dose > 0 ? `${m.dose.toFixed(1)} g` : "") +
+    row("Average flow", m.duration ? `${(m.yield / m.duration).toFixed(2)} g/s` : "") +
+    row("Peak flow", `${(m.peakFlow || 0).toFixed(2)} g/s`) +
+    row("First drop", m.firstDrop >= 0 ? `${m.firstDrop.toFixed(1)} s` : "") +
+    row("Grind", m.grind >= 0 ? `${m.grind}` : "");
+  $("#dNotes").textContent = m.notes ? `“${m.notes}”` : "";
+  $("#dJson").href = `/api/shot?id=${m.id}&download=1`;
+  $("#dCsv").href = `/api/shot.csv?id=${m.id}`;
+  $("#dHint").textContent = "";
+  renderRating(m);
+  renderRefButton(m);
+  delArmed = false;
+  $("#dDel").textContent = "Delete shot";
+  $("#dChart").querySelector("svg")?.remove();
+  $("#detail").showModal();
+
+  try {
+    const full = await api(`/api/shot?id=${m.id}`);
+    let ref = null;
+    const refMeta = state.shots.find(s => s.id === state.info.ref);
+    if (refMeta && refMeta.id !== m.id && refMeta.recipe === m.recipe) {
+      ref = state.refCurve && state.refCurve.id === state.info.ref ? state.refCurve
+          : (state.refCurve = await api(`/api/shot?id=${state.info.ref}`).catch(() => null));
+    }
+    if (state.current === m) drawChart(full, ref);
+  } catch { $("#dHint").textContent = "The curve couldn't be loaded from the SD card."; }
+}
+
+function drawChart(shot, ref) {
+  const s = shot.samples || { t: [], w: [], f: [] };
+  const W = 880, H = 344, L = 44, R = 46, T = 30, B = 30, pw = W - L - R, ph = H - T - B;
+  const tEnd = Math.max(s.t[s.t.length - 1] || 0, ref ? (ref.samples.t.at(-1) || 0) : 0);
+  const tMax = Math.max(20, Math.ceil(tEnd * 1.05 / 5) * 5);
+  const wTop = Math.max(...s.w, ref ? Math.max(...ref.samples.w) : 0, 10) * 1.12;
+  const wStep = wTop > 120 ? 50 : wTop > 60 ? 20 : wTop > 30 ? 10 : 5;
+  const wMax = Math.ceil(wTop / wStep) * wStep;
+  const fMax = Math.max(2, Math.ceil(Math.max(...s.f, 0) * 1.2));
+  const X = t => L + t / tMax * pw, Yw = w => T + ph - Math.max(0, w) / wMax * ph, Yf = f => T + ph - Math.max(0, f) / fMax * ph;
+  let g = "";
+  for (let v = 0; v <= wMax; v += wStep) g += `<line x1="${L}" x2="${L + pw}" y1="${Yw(v)}" y2="${Yw(v)}" stroke="var(--grid)"/><text x="${L - 8}" y="${Yw(v) + 4}" text-anchor="end" font-size="12" fill="var(--muted)">${v}</text>`;
+  const tStep = tMax > 120 ? 30 : tMax > 60 ? 10 : 5;
+  for (let t = 0; t <= tMax; t += tStep) g += `<text x="${X(t)}" y="${H - 8}" text-anchor="middle" font-size="12" fill="var(--muted)">${t}s</text>`;
+  for (let k = 0; k <= 4; k++) { const f = fMax * k / 4; g += `<text x="${L + pw + 8}" y="${Yf(f) + 4}" font-size="12" fill="var(--flow)" opacity=".8">${+f.toFixed(1)}</text>`; }
+  const wp = s.t.map((t, i) => [X(t), Yw(s.w[i])]);
+  const fp = s.t.map((t, i) => [X(t), Yf(s.f[i] || 0)]);
+  const lin = p => p.map((q, i) => `${i ? "L" : "M"}${q[0].toFixed(1)},${q[1].toFixed(1)}`).join("");
+  const area = wp.length ? `${lin(wp)}L${wp.at(-1)[0].toFixed(1)},${T + ph}L${wp[0][0].toFixed(1)},${T + ph}Z` : "";
+  const refPath = ref ? `<path d="${lin(ref.samples.t.map((t, i) => [X(t), Yw(ref.samples.w[i])]))}" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="6 5"/>` : "";
+  const svg = `<svg viewBox="0 0 ${W} ${H}" class="inst" role="img" aria-label="Weight and flow over time">
+    <defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".32"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+    ${g}<text x="${L - 8}" y="${T - 16}" text-anchor="end" font-size="11" fill="var(--muted)">g</text>
+    <text x="${L + pw + 8}" y="${T - 16}" font-size="11" fill="var(--flow)">g/s</text>
+    ${refPath}<path d="${area}" fill="url(#ag)"/>
+    <path d="${lin(fp)}" fill="none" stroke="var(--flow)" stroke-width="1.6" opacity=".85"/>
+    <path class="draw" pathLength="1" d="${lin(wp)}" fill="none" stroke="var(--accent)" stroke-width="3"/>
+    <line id="cx" y1="${T}" y2="${T + ph}" stroke="var(--muted)" stroke-dasharray="3 4" opacity="0"/>
+    <circle id="cdot" r="5" fill="var(--accent-hi)" opacity="0"/>
+    <rect x="${L}" y="${T}" width="${pw}" height="${ph}" fill="transparent" id="hit"/></svg>`;
+  $("#dChart").insertAdjacentHTML("beforeend", svg);
+  if (ref) $("#dHint").textContent = "Dashed line: your reference shot.";
+  const svgEl = $("#dChart svg"), ro = $("#readout");
+  const move = e => {
+    const b = svgEl.getBoundingClientRect();
+    const t = ((e.clientX - b.left) / b.width * W - L) / pw * tMax;
+    let i = s.t.findIndex(v => v >= t); if (i < 0) i = s.t.length - 1; if (i < 0) return;
+    svgEl.querySelector("#cx").setAttribute("x1", X(s.t[i])); svgEl.querySelector("#cx").setAttribute("x2", X(s.t[i]));
+    svgEl.querySelector("#cx").setAttribute("opacity", 1);
+    const d = svgEl.querySelector("#cdot"); d.setAttribute("cx", X(s.t[i])); d.setAttribute("cy", Yw(s.w[i])); d.setAttribute("opacity", 1);
+    ro.innerHTML = `<b>${s.t[i].toFixed(1)} s</b> · ${s.w[i].toFixed(1)} g · ${(s.f[i] || 0).toFixed(1)} g/s`;
+    ro.style.opacity = 1;
+  };
+  const leave = () => { svgEl.querySelector("#cx").setAttribute("opacity", 0); svgEl.querySelector("#cdot").setAttribute("opacity", 0); ro.style.opacity = 0; };
+  svgEl.querySelector("#hit").addEventListener("pointermove", move);
+  svgEl.querySelector("#hit").addEventListener("pointerdown", move);
+  svgEl.querySelector("#hit").addEventListener("pointerleave", leave);
+}
+
+function renderRating(m) {
+  $("#dRate").innerHTML = Array.from({ length: 5 }, (_, i) =>
+    `<button data-stars="${i + 1}" aria-label="Rate ${i + 1} star${i ? "s" : ""}" aria-pressed="${m.rating === i + 1}">${star(i < m.rating, "var(--muted)")}</button>`).join("");
+}
+
+function renderRefButton(m) {
+  const isRef = state.info.ref === m.id;
+  $("#dRef").textContent = isRef ? "Stop using as reference" : "Use as reference";
+}
+
+let delArmed = false;
+async function post(url) { return api(url, { method: "POST" }); }
+
+// ---- events ----
+$("#grid").addEventListener("click", e => { const c = e.target.closest(".card"); if (c) openDetail(+c.dataset.id); });
+$("#grid").addEventListener("pointerover", e => { const c = e.target.closest(".card"); hoverTrace(c && c.dataset.id); });
+$("#grid").addEventListener("pointerleave", () => hoverTrace(null));
+$("#grid").addEventListener("focusin", e => { const c = e.target.closest(".card"); hoverTrace(c && c.dataset.id); });
+document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => {
+  state.sort = b.dataset.sort;
+  document.querySelectorAll(".seg button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  render();
+}));
+$("#chips").addEventListener("click", e => {
+  const c = e.target.closest(".chip"); if (!c) return;
+  state.recipe = c.dataset.recipe || null; render();
+});
+$("#exportBtn").addEventListener("click", e => {
+  e.stopPropagation();
+  const open = $("#exportPop").classList.toggle("open");
+  $("#exportBtn").setAttribute("aria-expanded", open);
+});
+document.addEventListener("click", () => { $("#exportPop").classList.remove("open"); $("#exportBtn").setAttribute("aria-expanded", false); });
+$("#dClose").addEventListener("click", () => $("#detail").close());
+$("#detail").addEventListener("click", e => { if (e.target === $("#detail")) $("#detail").close(); });
+$("#dRate").addEventListener("click", async e => {
+  const b = e.target.closest("button"); if (!b || !state.current) return;
+  const m = state.current, n = +b.dataset.stars === m.rating ? 0 : +b.dataset.stars;
+  try { await post(`/api/rate?id=${m.id}&stars=${n}`); m.rating = n; renderRating(m); render(); }
+  catch { $("#dHint").textContent = "Rating wasn't saved. Check the SD card in the Tab5."; }
+});
+$("#dRef").addEventListener("click", async () => {
+  const m = state.current; if (!m) return;
+  const id = state.info.ref === m.id ? 0 : m.id;
+  try { await post(`/api/reference?id=${id}`); state.info.ref = id; state.refCurve = null; renderRefButton(m); render();
+        $("#dHint").textContent = id ? "The Tab5 now shows this shot as the ghost curve when it's set to Reference." : "Reference cleared."; }
+  catch { $("#dHint").textContent = "Couldn't change the reference shot."; }
+});
+$("#dDel").addEventListener("click", async () => {
+  const m = state.current; if (!m) return;
+  if (!delArmed) { delArmed = true; $("#dDel").textContent = "Tap again to delete"; return; }
+  try { await post(`/api/delete?id=${m.id}`); state.shots = state.shots.filter(s => s.id !== m.id);
+        if (state.info.ref === m.id) state.info.ref = 0; $("#detail").close(); render(); }
+  catch { $("#dHint").textContent = "Couldn't delete the shot."; }
+});
+
+let resizeTimer;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { if (state.shots.length) renderOverlay(visibleShots()); }, 150);
+});
+
+load();
+setInterval(() => { if (!$("#detail").open && state.info && state.info.sd) api("/api/shots").then(d => {
+  if ((d.shots || []).length !== state.shots.length) { state.shots = d.shots; render(); } }).catch(() => {}); }, 15000);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+# build output
+.pio/
+src/generated/
+firmware-archive/
+compile_commands.json
+
+# simulator output
+sim/out/
+sim/sdcard/
+
+# downloaded firmware images (e.g. the C6 ESP-Hosted image)
+*.bin
+
+# editors / OS
+.vscode/
+.cache/
+.DS_Store

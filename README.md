@@ -22,6 +22,8 @@ journal for an **Acaia Lunar** (also works with Pearl S, Pyxis and other Acaia s
   **renamed** and switched between espresso style and pour-over (timed pours), so unused slots
   can be reused, e.g. Lungo → "Single shot". **Reset** restores a slot's original settings.
   Past shots keep the name they were made with.
+  Every recipe value can be stepped with − / + or **typed on a number pad** (tap the value);
+  the shot-time window has *From* / *To* fields and is checked before it's saved.
 - **Dose and ratio**: tap **DOSE**, put the beans on the scale, tap **SAVE**. The dose is
   stored in the recipe, the target becomes *dose × ratio*, and the live ratio (`1:2.1`) is
   shown while you brew.

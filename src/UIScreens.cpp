@@ -446,8 +446,15 @@ void drawRecipes() {
 
   settingRowLabel(ex + 28, y, "Dose", "Coffee in, or weigh it with DOSE");
   snprintf(b, sizeof(b), r.dose > 0 ? "%.1f g" : "-", r.dose);
-  int d = stepper(ex + ew - 28, y, b);
-  if (d) { r.dose = constrain(r.dose + d * 0.5f, 0.0f, 60.0f); changed = true; }
+  int d = stepper(ex + ew - 28, y, b, true);
+  if (d == STEP_EDIT) {
+    openKeypad("Dose", "Coffee in, 0 = not set", {{"Dose", r.dose, 0, 60, 1, "g", ""}},
+               [idx](const std::vector<float>& v) {
+                 recipes::get(idx).dose = v[0];
+                 recipes::save(idx);
+                 return std::string();
+               }, Screen::Recipes);
+  } else if (d) { r.dose = constrain(r.dose + d * 0.5f, 0.0f, 60.0f); changed = true; }
   divider(ex, y + rowH / 2, ew); y += rowH;
 
   char sub[64];
@@ -456,8 +463,15 @@ void drawRecipes() {
   settingRowLabel(ex + 28, y, "Ratio", sub);
   if (r.ratio > 0) snprintf(b, sizeof(b), "1:%.1f", r.ratio);
   else snprintf(b, sizeof(b), "none");
-  d = stepper(ex + ew - 28, y, b);
-  if (d) {
+  d = stepper(ex + ew - 28, y, b, true);
+  if (d == STEP_EDIT) {
+    openKeypad("Ratio", "Grams out per gram in, 0 = no target", {{"Ratio", r.ratio, 0, 25, 1, "", "1:"}},
+               [idx](const std::vector<float>& v) {
+                 recipes::get(idx).ratio = v[0];
+                 recipes::save(idx);
+                 return std::string();
+               }, Screen::Recipes);
+  } else if (d) {
     float step = r.pourOver ? 0.5f : 0.1f;
     r.ratio = constrain(roundf((r.ratio + d * step) * 10) / 10, 0.0f, 25.0f);
     changed = true;
@@ -471,8 +485,24 @@ void drawRecipes() {
   } else {
     snprintf(b, sizeof(b), "off");
   }
-  d = stepper(ex + ew - 28, y, b);
-  if (d) {
+  d = stepper(ex + ew - 28, y, b, true);
+  if (d == STEP_EDIT) {
+    float lo = r.timeMax ? r.timeMin : 25, hi = r.timeMax ? r.timeMax : 32;
+    openKeypad("Shot time window", "Seconds, 0 and 0 = off",
+               {{"From", lo, 0, 600, 0, "s", ""}, {"To", hi, 0, 600, 0, "s", ""}},
+               [idx](const std::vector<float>& v) {
+                 int a = (int)v[0], b2 = (int)v[1];
+                 if (!(a == 0 && b2 == 0)) {
+                   if (a < 5) return std::string("From must be at least 5 s (or 0 and 0 for off)");
+                   if (b2 <= a) return std::string("To must be later than From");
+                 }
+                 Recipe& rr = recipes::get(idx);
+                 rr.timeMin = a;
+                 rr.timeMax = b2;
+                 recipes::save(idx);
+                 return std::string();
+               }, Screen::Recipes);
+  } else if (d) {
     // shift the window; from "off" start with a typical espresso window
     int step = r.timeMax >= 120 ? 10 : 1;
     if (r.timeMax == 0 && d > 0) { r.timeMin = 25; r.timeMax = 32; }
@@ -484,14 +514,29 @@ void drawRecipes() {
 
   settingRowLabel(ex + 28, y, "Auto stop after", "Seconds without weight gain");
   snprintf(b, sizeof(b), "%d s", r.stopDelayS);
-  d = stepper(ex + ew - 28, y, b);
-  if (d) { r.stopDelayS = constrain(r.stopDelayS + d * (r.stopDelayS >= 10 ? 5 : 1), 2, 90); changed = true; }
+  d = stepper(ex + ew - 28, y, b, true);
+  if (d == STEP_EDIT) {
+    openKeypad("Auto stop after", "Seconds without weight gain", {{"Delay", (float)r.stopDelayS, 2, 90, 0, "s", ""}},
+               [idx](const std::vector<float>& v) {
+                 recipes::get(idx).stopDelayS = (uint8_t)v[0];
+                 recipes::save(idx);
+                 return std::string();
+               }, Screen::Recipes);
+  } else if (d) { r.stopDelayS = constrain(r.stopDelayS + d * (r.stopDelayS >= 10 ? 5 : 1), 2, 90); changed = true; }
   divider(ex, y + rowH / 2, ew); y += rowH;
 
   settingRowLabel(ex + 28, y, "Start threshold", "Weight change that starts the plot");
   snprintf(b, sizeof(b), "%.1f g", r.startThreshold);
-  d = stepper(ex + ew - 28, y, b);
-  if (d) { r.startThreshold = constrain(r.startThreshold + d * 0.1f, 0.2f, 3.0f); changed = true; }
+  d = stepper(ex + ew - 28, y, b, true);
+  if (d == STEP_EDIT) {
+    openKeypad("Start threshold", "Weight change that starts the plot",
+               {{"Threshold", r.startThreshold, 0.2f, 3.0f, 1, "g", ""}},
+               [idx](const std::vector<float>& v) {
+                 recipes::get(idx).startThreshold = v[0];
+                 recipes::save(idx);
+                 return std::string();
+               }, Screen::Recipes);
+  } else if (d) { r.startThreshold = constrain(r.startThreshold + d * 0.1f, 0.2f, 3.0f); changed = true; }
   y += rowH / 2 + 14;
 
   if (r.pourOver && r.target() > 0) {

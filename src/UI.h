@@ -14,6 +14,7 @@ enum class Screen : uint8_t {
   WifiNetworks,
   Keyboard,
   System,        // backup / restore, about
+  Keypad,        // numeric input
 };
 
 namespace ui {

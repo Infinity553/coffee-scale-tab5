@@ -58,7 +58,9 @@ bool toggle(int x, int y, bool& value);
 int  segmented(int xr, int cy, const char* const* labels, int n, int selected, int segW = 112);
 void chip(int x, int y, const char* label, uint16_t fg, uint16_t bg, textdatum_t align);
 void toggleChip(int xr, int y, const char* label, bool on);
-int  stepper(int xr, int cy, const char* value);           // -1 / 0 / +1
+// -1 / 0 / +1, or STEP_EDIT when `editable` and the value itself was tapped
+constexpr int STEP_EDIT = 2;
+int  stepper(int xr, int cy, const char* value, bool editable = false);
 void settingRowLabel(int x, int y, const char* label, const char* sub);
 bool toggleRow(int x, int y, int w, const char* label, const char* sub, bool& v);
 void divider(int x, int y, int w);
@@ -123,6 +125,20 @@ void drawWifi();
 void drawNetworks();
 void drawKeyboard();
 void drawSystem();
+void drawKeypad();
+
+// Numeric keypad (full screen). One or two fields; `apply` gets the values
+// (already range-checked) and returns an error message, or "" to close.
+struct NumField {
+  const char* label;     // shown when there are two fields, e.g. "From"
+  float       value;
+  float       min, max;
+  int         decimals;
+  const char* unit;      // "g", "s" or ""
+  const char* prefix;    // e.g. "1:" for ratios, or ""
+};
+void openKeypad(const char* title, const char* hint, std::vector<NumField> fields,
+                std::function<std::string(const std::vector<float>&)> apply, Screen returnTo);
 // selectAll: the initial text starts selected, so typing replaces it (renaming).
 void openKeyboard(const char* title, const std::string& initial, size_t maxLen, bool secret,
                   std::function<void(const std::string&)> done, Screen returnTo,

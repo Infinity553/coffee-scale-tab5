@@ -167,6 +167,7 @@ static void drawScreen() {
     case Screen::WifiNetworks: drawNetworks(); break;
     case Screen::Keyboard:     drawKeyboard(); break;
     case Screen::System:       drawSystem(); break;
+    case Screen::Keypad:       drawKeypad(); break;
   }
 }
 

@@ -196,10 +196,17 @@ void toggleChip(int xr, int y, const char* label, bool on) {
   text(label, x + w / 2, y + 1, F_LABEL, on ? CHIP_ON_FG : MUTED, textdatum_t::middle_center);
 }
 
-int stepper(int xr, int cy, const char* value) {
+int stepper(int xr, int cy, const char* value, bool editable) {
   const int bs = 54, vw = 120;
   int r = 0;
   if (button(xr - bs, cy - bs / 2, bs, bs, "+", Btn::Secondary)) r = 1;
+  if (editable) {
+    // tappable value: a field look, opens the keypad
+    const int vx = xr - bs - vw + 6, vy = cy - bs / 2, fw = vw - 12;
+    if (hit(vx, vy, fw, bs)) r = STEP_EDIT;
+    canvas.fillSmoothRoundRect(vx, vy, fw, bs, 12, flashing(vx, vy) || r == STEP_EDIT ? STROKE : SURFACE2);
+    canvas.drawFastHLine(vx + 14, vy + bs - 9, fw - 28, STROKE);
+  }
   text(value, xr - bs - vw / 2, cy + 1, F_LABEL, HIGHLIGHT, textdatum_t::middle_center);
   if (button(xr - bs * 2 - vw, cy - bs / 2, bs, bs, "-", Btn::Secondary)) r = -1;
   return r;

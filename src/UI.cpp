@@ -1,6 +1,7 @@
 // Frame loop: touch, partial / full redraws, rotation and screen sleep.
 #include "UI.h"
 #include "AcaiaScale.h"
+#include "Blit.h"
 #include "History.h"
 #include "Net.h"
 #include "Settings.h"
@@ -14,6 +15,7 @@ static bool softDirty = false;   // data changed (screens other than main)
 static uint32_t lastDraw = 0;
 static int baseRotation = 1;
 static int nativeW = 720, nativeH = 1280;   // panel size in its native orientation
+static bool hwRotation = false;             // PPA rotates the landscape canvas into the panel
 static uint32_t lastHistoryVer = 0;
 static uint32_t lastScreenSig = 0;
 static bool flashRedrawDue = false;   // one more frame when a button's pressed look ends
@@ -34,12 +36,16 @@ void setScreen(Screen s) {
   dirty = true;
 }
 
+// Rotation between the logical (landscape) UI and the portrait panel.
 static int canvasRotation() {
   return settings.flipScreen ? (baseRotation + 2) % 4 : baseRotation;
 }
 
-// The canvas is allocated in the panel's native (portrait) orientation and
-// rotated internally, so a push is a straight memcpy into the DSI frame buffer.
+// Two ways to get the landscape UI onto the portrait panel:
+//  - hardware (PPA): the canvas is landscape and unrotated (fast drawing); the
+//    PPA rotates changed regions into the frame buffer.
+//  - software fallback: the canvas is portrait and rotated internally, so a
+//    push is a straight memcpy into the frame buffer, but drawing is slower.
 // These map between logical (landscape) and native panel coordinates.
 static void logicalToNative(int x, int y, int& nx, int& ny) {
   const int NW = nativeW, NH = nativeH;
@@ -62,6 +68,13 @@ static void nativeToLogical(int nx, int ny, int& x, int& y) {
 }
 
 void pushRect(const Rect& r) {
+  if (hwRotation) {
+    if (!blit::push(canvas.getBuffer(), W, H, r.x, r.y, r.w, r.h, canvasRotation())) {
+      static uint32_t lastLog = 0;   // the landscape canvas can't use the software path
+      if (millis() - lastLog > 5000) { lastLog = millis(); log_e("PPA transfer failed"); }
+    }
+    return;
+  }
   int ax, ay, bx, by;
   logicalToNative(r.x, r.y, ax, ay);
   logicalToNative(r.x + r.w - 1, r.y + r.h - 1, bx, by);
@@ -71,7 +84,7 @@ void pushRect(const Rect& r) {
 }
 
 void applyDisplaySettings() {
-  canvas.setRotation(canvasRotation());
+  canvas.setRotation(hwRotation ? 0 : canvasRotation());
   if (!asleep) M5.Display.setBrightness(settings.brightness);
   dirty = true;
 }
@@ -86,7 +99,8 @@ void begin() {
   // same pixel format as the panel frame buffer -> no conversion on push
   canvas.setColorDepth(M5.Display.getColorDepth());
   canvas.setPsram(true);
-  if (!canvas.createSprite(nativeW, nativeH)) log_e("canvas allocation failed");
+  hwRotation = blit::begin(nativeW, nativeH) && canvas.createSprite(nativeH, nativeW);
+  if (!hwRotation && !canvas.createSprite(nativeW, nativeH)) log_e("canvas allocation failed");
   canvas.setTextWrap(false);
   applyDisplaySettings();
   W = canvas.width();
@@ -259,7 +273,7 @@ void update() {
   // pressed look. (The main screen's regions handle this themselves.)
   if (takeHit() && current != Screen::Main) flashRedrawDue = true;
   uint32_t t1 = micros();
-  canvas.pushSprite(0, 0);
+  pushRect({0, 0, W, H});
   statFrames++;
   statFull++;
   statDrawUs += t1 - t0;

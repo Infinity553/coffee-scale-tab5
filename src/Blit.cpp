@@ -13,6 +13,7 @@ namespace blit {
 
 #if BLIT_PPA
 static ppa_client_handle_t client = nullptr;
+static ppa_client_handle_t fillClient = nullptr;
 static void* fb = nullptr;
 static int fbW = 0, fbH = 0;
 static ppa_srm_rotation_angle_t angleRot1, angleRot3;   // PPA angle for screen rotation 1 / 3
@@ -138,6 +139,36 @@ bool push(const void* canvas, int canvasW, int canvasH, int x, int y, int w, int
                      ox, oy, rotation == 1 ? angleRot1 : angleRot3);
 #else
   (void)canvas; (void)canvasW; (void)canvasH; (void)x; (void)y; (void)w; (void)h; (void)rotation;
+  return false;
+#endif
+}
+
+bool fill(void* buf, size_t bufSize, int picW, int picH, int x, int y, int w, int h, uint16_t c) {
+#if BLIT_PPA
+  if (!fillClient) {
+    ppa_client_config_t cfg = {};
+    cfg.oper_type = PPA_OPERATION_FILL;
+    cfg.max_pending_trans_num = 1;
+    if (ppa_register_client(&cfg, &fillClient) != ESP_OK) return false;
+  }
+  ppa_fill_oper_config_t op = {};
+  op.out.buffer = buf;
+  op.out.buffer_size = bufSize;
+  op.out.pic_w = picW;
+  op.out.pic_h = picH;
+  op.out.block_offset_x = x;
+  op.out.block_offset_y = y;
+  op.out.fill_cm = PPA_FILL_COLOR_MODE_RGB565;
+  op.fill_block_w = w;
+  op.fill_block_h = h;
+  op.fill_argb_color.a = 255;
+  op.fill_argb_color.r = ((c >> 11) & 0x1F) << 3;
+  op.fill_argb_color.g = ((c >> 5) & 0x3F) << 2;
+  op.fill_argb_color.b = (c & 0x1F) << 3;
+  op.mode = PPA_TRANS_MODE_BLOCKING;
+  return ppa_do_fill(fillClient, &op) == ESP_OK;
+#else
+  (void)buf; (void)bufSize; (void)picW; (void)picH; (void)x; (void)y; (void)w; (void)h; (void)c;
   return false;
 #endif
 }

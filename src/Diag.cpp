@@ -25,8 +25,11 @@ void begin() {
       why = "crash"; explain = "firmware crash"; break;
     case ESP_RST_INT_WDT:
     case ESP_RST_TASK_WDT:
+      why = "watchdog"; explain = "watchdog: a task stopped responding"; break;
     case ESP_RST_WDT:
-      why = "watchdog"; explain = "watchdog (also used after a crash whose dump took too long to save)"; break;
+      // esptool resets the chip this way after flashing over USB; a real crash
+      // also leaves a core dump, which is reported below
+      explain = "system reset (normal after flashing over USB)"; break;
     case ESP_RST_BROWNOUT:
       why = "power dip"; explain = "brownout: supply voltage dropped"; break;
     case ESP_RST_SW:

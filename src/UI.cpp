@@ -106,6 +106,10 @@ void begin() {
   W = canvas.width();
   H = canvas.height();
   M5.Speaker.setVolume(140);
+#if defined(ESP_PLATFORM)
+  void runBenchmark();   // TEMPORARY, see Bench.cpp
+  runBenchmark();
+#endif
   current = settings.configured ? Screen::Main : Screen::SetupWelcome;
   lastActivity = millis();
 }

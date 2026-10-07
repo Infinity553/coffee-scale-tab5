@@ -23,6 +23,8 @@ class Preferences {
   }
   float getFloat(const char*, float d) { return d; }
   uint32_t getUInt(const char*, uint32_t d) { return d; }
+  uint16_t getUShort(const char*, uint16_t d) { return d; }
+  void putUShort(const char*, uint16_t) {}
   void putUInt(const char*, uint32_t) {}
   void putBool(const char*, bool) {}
   void putString(const char*, const String&) {}

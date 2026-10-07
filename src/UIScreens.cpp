@@ -21,7 +21,7 @@ void resetScanSelection() {
 static const uint8_t SLEEP_STEPS[] = {0, 1, 2, 5, 10, 30, 60};
 
 static void brewingRows(int x, int y, int w) {
-  const int rh = 82;
+  const int rh = 76;
   char b[64];
   int cy = y + rh / 2;
   toggleRow(x, cy, w, "Auto tare", "Tare when a cup is placed or removed", settings.autoTare);
@@ -40,6 +40,15 @@ static void brewingRows(int x, int y, int w) {
   int g = segmented(x + w - 28, cy, ghosts, 3, settings.ghostMode, 92);
   if (g >= 0 && g != settings.ghostMode) {
     settings.ghostMode = g;
+    settings.save();
+  }
+  divider(x, cy + rh / 2, w); cy += rh;
+
+  settingRowLabel(x + 28, cy, "Grinder", "Which number grinds finer");
+  static const char* const dirs[] = {"Lower", "Higher"};
+  int gd = segmented(x + w - 28, cy, dirs, 2, settings.finerIsLower ? 0 : 1, 112);
+  if (gd >= 0 && (gd == 0) != settings.finerIsLower) {
+    settings.finerIsLower = gd == 0;
     settings.save();
   }
   divider(x, cy + rh / 2, w); cy += rh;
@@ -308,7 +317,10 @@ void drawRecipes() {
   if (d) { r.dose = constrain(r.dose + d * 0.5f, 0.0f, 60.0f); changed = true; }
   divider(ex, y + rowH / 2, ew); y += rowH;
 
-  settingRowLabel(ex + 28, y, "Ratio", "Beverage weight per gram of coffee");
+  char sub[64];
+  if (r.target() > 0) snprintf(sub, sizeof(sub), "Beverage weight per gram: %.1f g out", r.target());
+  else snprintf(sub, sizeof(sub), "Beverage weight per gram of coffee");
+  settingRowLabel(ex + 28, y, "Ratio", sub);
   if (r.ratio > 0) snprintf(b, sizeof(b), "1:%.1f", r.ratio);
   else snprintf(b, sizeof(b), "none");
   d = stepper(ex + ew - 28, y, b);
@@ -319,10 +331,22 @@ void drawRecipes() {
   }
   divider(ex, y + rowH / 2, ew); y += rowH;
 
-  settingRowLabel(ex + 28, y, "Target", "Dose times ratio");
-  if (r.target() > 0) snprintf(b, sizeof(b), "%.1f g", r.target());
-  else snprintf(b, sizeof(b), "none");
-  text(b, ex + ew - 28 - 54 - 60, y, F_LABEL, HIGHLIGHT, textdatum_t::middle_center);
+  settingRowLabel(ex + 28, y, "Shot time", "Window the dial-in assistant aims for");
+  if (r.timeMax > 0) {
+    if (r.timeMax >= 120) snprintf(b, sizeof(b), "%d:%02d-%d:%02d", r.timeMin / 60, r.timeMin % 60, r.timeMax / 60, r.timeMax % 60);
+    else snprintf(b, sizeof(b), "%d-%d s", r.timeMin, r.timeMax);
+  } else {
+    snprintf(b, sizeof(b), "off");
+  }
+  d = stepper(ex + ew - 28, y, b);
+  if (d) {
+    // shift the window; from "off" start with a typical espresso window
+    int step = r.timeMax >= 120 ? 10 : 1;
+    if (r.timeMax == 0 && d > 0) { r.timeMin = 25; r.timeMax = 32; }
+    else if (r.timeMin + d * step < 5) { r.timeMin = r.timeMax = 0; }
+    else { r.timeMin += d * step; r.timeMax += d * step; }
+    changed = true;
+  }
   divider(ex, y + rowH / 2, ew); y += rowH;
 
   settingRowLabel(ex + 28, y, "Auto stop after", "Seconds without weight gain");

@@ -32,6 +32,12 @@ journal for an **Acaia Lunar** (also works with Pearl S, Pyxis and other Acaia s
 - **Shot summary** after every shot: time, yield, ratio, dose, average and peak flow, first
   drop (when you start the timer yourself), **star rating**, **grind setting**, **notes**
   (on‑screen keyboard) and *Use as reference*
+- **Dial-in assistant** in the shot summary: compares the shot time with your reference shot
+  (same recipe) or the recipe's time window and suggests the next grind setting, e.g.
+  *"Ran 5 s slow: try 11.5 (now 10.0), about -9 s"*. It learns your grinder from the history
+  (seconds per grind unit for that recipe and dose). Tap **Sour / Balanced / Bitter** to refine:
+  sour on time → longer ratio, bitter → shorter; fast and bitter → check puck prep.
+  **Use grind …** carries the setting into the next shot (shown on the timer card).
 
 **History** (needs a microSD card in the Tab5)
 - Every shot is saved with its full curve. Without a card nothing is stored, and the
@@ -150,7 +156,8 @@ The preview server answers the same API as the Tab5, using the simulated SD card
 |------|---------|
 | `src/AcaiaScale.*` | BLE driver: scan, connect, Acaia protocol, heartbeat, auto reconnect (own task) |
 | `src/Brew.*` | Shot logic: stability, flow, auto tare, auto start/stop, dosing, drip learning, plot samples |
-| `src/Recipes.*` | Recipes with dose, ratio, stop delay, threshold and pour‑over stages |
+| `src/Recipes.*` | Recipes with dose, ratio, time window, stop delay, threshold and pour‑over stages |
+| `src/DialIn.*` | Dial-in assistant: advice rules and the learned grind/time model |
 | `src/History.*` | Shot history on the SD card, ratings/notes, reference and ghost curves |
 | `src/Storage.*` | SD card access (SPI mode), insert/remove detection |
 | `src/Net.*` | Wi‑Fi (home or hotspot), mDNS, NTP and the web API (own task) |

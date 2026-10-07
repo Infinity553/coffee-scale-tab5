@@ -454,7 +454,8 @@ async function openDetail(id) {
     row("Average flow", m.duration ? `${(m.yield / m.duration).toFixed(2)} g/s` : "") +
     row("Peak flow", `${(m.peakFlow || 0).toFixed(2)} g/s`) +
     row("First drop", m.firstDrop >= 0 ? `${m.firstDrop.toFixed(1)} s` : "") +
-    row("Grind", m.grind >= 0 ? `${m.grind}` : "");
+    row("Grind", m.grind >= 0 ? `${m.grind}` : "") +
+    row("Taste", ["", "Sour", "Balanced", "Bitter"][m.taste || 0] || "");
   $("#dNotes").textContent = m.notes ? `“${m.notes}”` : "";
   $("#dJson").href = `/api/shot?id=${m.id}&download=1`;
   $("#dCsv").href = `/api/shot.csv?id=${m.id}`;

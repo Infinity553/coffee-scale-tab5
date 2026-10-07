@@ -1,5 +1,6 @@
 // Main screen: weight, timer, buttons, extraction plot and the shot summary.
 #include "AcaiaScale.h"
+#include "DialIn.h"
 #include "Diag.h"
 #include "History.h"
 #include "Net.h"
@@ -21,6 +22,11 @@ static bool summaryOpen = false;
 static bool summarySaved = false;
 static ShotMeta summary;
 static int lastStage = -1;
+
+// dial-in advice for the summary, recomputed only when its inputs change
+static dialin::Advice advice;
+static uint32_t adviceKey = 0;
+static uint32_t appliedKey = 0;   // advice already applied (button shows "Applied")
 
 static void clearRect(const Rect& r) { fillRectFast(r.x, r.y, r.w, r.h, BG); }
 
@@ -218,6 +224,9 @@ static void drawTimerCard() {
   } else if (brew.state() == BrewState::Running && brew.firstDropSeconds() > 0.5f) {
     snprintf(b, sizeof(b), "first drop %.1f s", brew.firstDropSeconds());
     text(b, tx + tw - 28, ty + 108, F_BODY, MUTED, textdatum_t::middle_right);
+  } else if (brew.state() == BrewState::Armed && settings.lastGrind >= 0) {
+    snprintf(b, sizeof(b), "grind %.1f", settings.lastGrind);
+    text(b, tx + tw - 28, ty + 108, F_BODY, MUTED, textdatum_t::middle_right);
   }
 }
 
@@ -392,25 +401,80 @@ static void drawSummary() {
   canvas.drawFastHLine(x + 28, y + 290, w - 56, GRID);
 
   const int by = y + h - 92;
+
+  // dial-in assistant (works without an SD card too, but learns only with history)
+  const Recipe& r = recipes::active();
+  uint32_t key = (summary.id * 2654435761u) ^ (summary.taste << 24) ^ ((uint32_t)(summary.grind * 2) << 8) ^
+                 history::version() ^ ((uint32_t)(r.ratio * 10) << 16) ^ settings.refShotId ^
+                 (settings.finerIsLower ? 0x5a5a : 0) ^ (summarySaved ? 1 : 0);
+  if (key != adviceKey) {
+    adviceKey = key;
+    advice = dialin::advise(summary, r);
+  }
+  auto drawAdvice = [&](int ay) {
+    if (!advice.valid) return;
+    const int ah = 84, aw = w - 56;
+    canvas.fillSmoothRoundRect(x + 28, ay, aw, ah, 16, SURFACE2);
+    canvas.fillSmoothRoundRect(x + 28, ay, 6, ah, 3, advice.good ? GOOD : ACCENT);
+    bool canApply = advice.grind >= 0 || advice.ratio > 0;
+    int textW = aw - 40 - (canApply ? 210 : 0);
+    textFit(advice.headline.c_str(), x + 52, ay + 26, textW, F_LABEL, TEXT);
+    // detail may be long: two lines
+    std::string d = advice.detail, l2;
+    if (textWidth(d.c_str(), F_AXIS) > textW) {
+      size_t cut = d.size();
+      while (cut > 0 && (d[cut] != ' ' || textWidth(d.substr(0, cut).c_str(), F_AXIS) > textW)) cut--;
+      if (cut > 0) { l2 = d.substr(cut + 1); d = d.substr(0, cut); }
+    }
+    text(d.c_str(), x + 52, ay + 52, F_AXIS, MUTED);
+    if (!l2.empty()) textFit(l2.c_str(), x + 52, ay + 72, textW, F_AXIS, MUTED);
+    if (canApply) {
+      char lb[32];
+      bool applied = appliedKey == adviceKey;
+      if (applied) snprintf(lb, sizeof(lb), "Applied");
+      else if (advice.grind >= 0) snprintf(lb, sizeof(lb), "Use grind %.1f", advice.grind);
+      else snprintf(lb, sizeof(lb), "Use 1:%.1f", advice.ratio);
+      if (button(x + 28 + aw - 196, ay + 14, 182, ah - 28, lb, applied ? Btn::Ghost : Btn::Primary,
+                 true, F_LABEL) && !applied) {
+        if (advice.grind >= 0) { settings.lastGrind = advice.grind; settings.save(); }
+        if (advice.ratio > 0) {
+          Recipe& rr = recipes::active();
+          rr.ratio = advice.ratio;
+          recipes::save(recipes::activeIndex());
+        }
+        appliedKey = adviceKey;
+        beep(2400, 50);
+      }
+    }
+  };
+
   if (!summarySaved) {
-    text("Insert an SD card to keep shots,", x + w / 2, y + 380, F_BODYL, MUTED, textdatum_t::middle_center);
-    text("ratings and notes.", x + w / 2, y + 420, F_BODYL, MUTED, textdatum_t::middle_center);
+    text("Insert an SD card to keep shots, ratings and notes,", x + 28, y + 326, F_BODY, MUTED);
+    text("and to let the dial-in assistant learn your grinder.", x + 28, y + 356, F_BODY, MUTED);
+    drawAdvice(y + 420);
     if (button(x + w - 228, by, 200, 68, "Done", Btn::Primary)) summaryOpen = false;
     return;
   }
 
-  // rating
-  int ry = y + 340;
+  // rating + taste
+  int ry = y + 322;
   text("Rating", x + 28, ry, F_LABEL, TEXT);
-  int nr = starsInput(x + 200, ry, 48, summary.rating);
+  int nr = starsInput(x + 124, ry, 34, summary.rating);
   if (nr >= 0) { summary.rating = nr; history::update(summary); }
+  static const char* const tastes[] = {"Sour", "Balanced", "Bitter"};
+  int t = segmented(x + w - 28, ry, tastes, 3, (int)summary.taste - 1, 116);
+  if (t >= 0) {
+    summary.taste = (summary.taste == t + 1) ? dialin::TASTE_NONE : t + 1;   // tap again to clear
+    history::update(summary);
+  }
 
-  // grind
-  int gy = y + 420;
+  // grind + note
+  int gy = y + 388;
   settingRowLabel(x + 28, gy, "Grind", "Setting on your grinder");
-  if (summary.grind >= 0) snprintf(b, sizeof(b), "%.1f", summary.grind);
-  else snprintf(b, sizeof(b), "-");
-  int dd = stepper(x + 470, gy, b);
+  char b2[16];
+  if (summary.grind >= 0) snprintf(b2, sizeof(b2), "%.1f", summary.grind);
+  else snprintf(b2, sizeof(b2), "-");
+  int dd = stepper(x + 470, gy, b2);
   if (dd) {
     if (summary.grind < 0) summary.grind = settings.lastGrind >= 0 ? settings.lastGrind : 10.0f;
     else summary.grind = constrain(summary.grind + dd * 0.5f, 0.0f, 99.5f);
@@ -418,7 +482,6 @@ static void drawSummary() {
     settings.save();
     history::update(summary);
   }
-  // notes
   if (button(x + 494, gy - 30, w - 522, 60, summary.notes.empty() ? "Add note" : "Edit note",
              Btn::Secondary, true, F_LABEL)) {
     openKeyboard("Notes for this shot", summary.notes, 80, false, [](const std::string& s) {
@@ -426,10 +489,8 @@ static void drawSummary() {
       history::update(summary);
     }, Screen::Main);
   }
-  if (!summary.notes.empty()) {
-    snprintf(b, sizeof(b), "\"%s\"", summary.notes.c_str());
-    textFit(b, x + 28, gy + 54, w - 56, F_BODY, MUTED);
-  }
+
+  drawAdvice(y + 430);
 
   bool isRef = settings.refShotId == summary.id;
   if (button(x + 28, by, 300, 68, isRef ? "Reference shot" : "Use as reference",
@@ -523,8 +584,8 @@ static uint32_t sigWeight() {
 static uint32_t sigTimer() {
   char b[80], t[24];
   formatTimer(t, sizeof(t), brew.timerSeconds(millis()));
-  snprintf(b, sizeof(b), "%s|%s|%d|%.1f|%.1f", t, brewStateLabel(), brew.timerRunning(),
-           brew.weight(), brew.firstDropSeconds());
+  snprintf(b, sizeof(b), "%s|%s|%d|%.1f|%.1f|%.1f", t, brewStateLabel(), brew.timerRunning(),
+           brew.weight(), brew.firstDropSeconds(), settings.lastGrind);
   return fnv(b);
 }
 
@@ -543,7 +604,8 @@ static uint32_t sigPlot() {
            settings.autoStart || settings.autoStop, recipes::active().target(),
            (unsigned long)history::version(), summaryOpen, (unsigned long)summary.id,
            summary.rating, summary.grind, (int)summary.notes.size(), (unsigned)fnv(summary.notes.c_str()),
-           (unsigned long)settings.refShotId, flashActive(millis()), settings.ghostMode);
+           (unsigned long)settings.refShotId, flashActive(millis()), settings.ghostMode * 16 + summary.taste +
+           (appliedKey == adviceKey ? 128 : 0));
   return fnv(b);
 }
 

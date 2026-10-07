@@ -24,6 +24,7 @@ void Settings::load() {
   ghostMode      = p.getUChar("ghost", GHOST_LAST);
   refShotId      = p.getUInt("refShot", 0);
   lastGrind      = p.getFloat("grind", -1);
+  finerIsLower   = p.getBool("finerLow", true);
   sleepMin       = p.getUChar("sleep", 10);
   wifiEnabled    = p.getBool("wifiOn", false);
   wifiMode       = p.getUChar("wifiMode", WIFI_HOTSPOT);
@@ -51,6 +52,7 @@ void Settings::save() const {
   p.putUChar("ghost", ghostMode);
   p.putUInt("refShot", refShotId);
   p.putFloat("grind", lastGrind);
+  p.putBool("finerLow", finerIsLower);
   p.putUChar("sleep", sleepMin);
   p.putBool("wifiOn", wifiEnabled);
   p.putUChar("wifiMode", wifiMode);

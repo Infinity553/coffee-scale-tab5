@@ -19,6 +19,7 @@ struct ShotMeta {
   float       firstDrop = -1; // s after timer start, -1 = unknown
   float       grind = -1;     // grinder setting, -1 = not set
   uint8_t     rating = 0;     // 0 = not rated, 1..5 stars
+  uint8_t     taste = 0;      // dialin::Taste (0 = not set, 1 sour, 2 balanced, 3 bitter)
   std::string recipe;
   std::string notes;
   std::vector<float> spark;   // ~24 weight points for previews
@@ -39,7 +40,7 @@ size_t count();
 
 // Saves a finished shot; fills in id/epoch/spark. Returns the id, 0 if not saved.
 uint32_t save(ShotMeta& meta, const BrewSample* samples, int n);
-bool update(const ShotMeta& meta);   // rating / grind / notes
+bool update(const ShotMeta& meta);   // rating / taste / grind / notes
 bool remove(uint32_t id);
 bool loadCurve(uint32_t id, std::vector<BrewSample>& out);
 bool readShotFile(uint32_t id, std::string& json);

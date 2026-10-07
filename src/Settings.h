@@ -26,6 +26,7 @@ struct Settings {
   uint8_t  ghostMode      = GHOST_LAST;
   uint32_t refShotId      = 0;      // reference shot (0 = none)
   float    lastGrind      = -1;     // last grind setting used (-1 = unset)
+  bool     finerIsLower   = true;   // grinder: a lower number grinds finer
   uint8_t  sleepMin       = 10;     // screen sleep after minutes idle (0 = never)
 
   // network

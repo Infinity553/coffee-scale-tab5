@@ -9,6 +9,8 @@
 //   SIM_TAP=x,y@sec      tap at logical coordinates after sec seconds (repeat with ;)
 //   SIM_SNAPS=2,10,25    save PNG screenshots to sim/out at these seconds, then exit
 //   SIM_FASTFILL=1       use the Tab5's fast card/fill drawing path
+//   SIM_WINDOW=20,26     espresso shot-time window for the dial-in assistant
+//   SIM_GRIND=10.0       grind setting of the next shot
 #include <M5Unified.h>
 #include <cstdlib>
 #include <ctime>
@@ -38,7 +40,9 @@ static void seedHistory(int count) {
     bool rist = i % 7 == 3;
     float dose = pour ? 15.0f : 18.0f;
     float yield = pour ? 245 + u(rng) * 12 : rist ? 26 + u(rng) * 3 : 34 + u(rng) * 6;
-    float dur = pour ? 170 + u(rng) * 30 : 24 + u(rng) * 10;
+    // espresso: finer (lower) grind runs longer, ~5 s per grind unit, plus noise
+    float grind = pour ? 22.0f : 9.5f + (int)(u(rng) * 4) * 0.5f;
+    float dur = pour ? 170 + u(rng) * 30 : 27 + (10.25f - grind) * 5 + (u(rng) - 0.5f) * 3;
     std::vector<BrewSample> s;
     float prevW = 0;
     for (float t = 0; t <= dur + 4; t += pour ? 0.5f : 0.1f) {
@@ -58,7 +62,8 @@ static void seedHistory(int count) {
     m.dose = dose;
     m.peakFlow = peak;
     m.firstDrop = 4 + u(rng) * 4;
-    m.grind = pour ? 22.0f : 9.5f + (int)(u(rng) * 4) * 0.5f;
+    m.grind = grind;
+    m.taste = (uint8_t)(u(rng) * 4);
     m.rating = (uint8_t)(u(rng) < 0.15f ? 0 : 1 + (int)(u(rng) * 5));
     m.recipe = pour ? "Pour-over" : rist ? "Ristretto" : "Espresso";
     if (i % 5 == 0) m.notes = "Sweet, a little bright. Try one step finer.";
@@ -85,6 +90,11 @@ void setup() {
   settings.load();
   if (getenv("SIM_WIFI")) { settings.wifiEnabled = true; settings.wifiMode = WIFI_HOME; }
   recipes::load();
+  if (const char* wnd = getenv("SIM_WINDOW")) {   // e.g. 20,26: espresso time window
+    int a = 0, b = 0;
+    if (sscanf(wnd, "%d,%d", &a, &b) == 2) { recipes::get(0).timeMin = a; recipes::get(0).timeMax = b; }
+  }
+  if (const char* g = getenv("SIM_GRIND")) settings.lastGrind = atof(g);
   brew.begin();
   ui::begin();
   if (getenv("SIM_FASTFILL")) ui::setFastFill(true);   // test the Tab5 card/fill path

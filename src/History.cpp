@@ -56,9 +56,9 @@ std::string metaJson(const ShotMeta& m) {
   char b[320];
   snprintf(b, sizeof(b),
            "{\"id\":%lu,\"time\":%lu,\"duration\":%.1f,\"yield\":%.1f,\"dose\":%.1f,"
-           "\"peakFlow\":%.2f,\"firstDrop\":%.1f,\"grind\":%.1f,\"rating\":%u,\"taste\":%u,\"recipe\":",
+           "\"peakFlow\":%.2f,\"firstDrop\":%.1f,\"grind\":%.1f,\"rating\":%u,\"taste\":%u,\"inBand\":%d,\"recipe\":",
            (unsigned long)m.id, (unsigned long)m.epoch, m.time, m.yield, m.dose, m.peakFlow,
-           m.firstDrop, m.grind, m.rating, m.taste);
+           m.firstDrop, m.grind, m.rating, m.taste, m.inBand);
   o += b;
   appendEscaped(o, m.recipe);
   o += ",\"notes\":";
@@ -83,6 +83,7 @@ static void metaFromJson(JsonObjectConst j, ShotMeta& m) {
   m.grind = j["grind"] | -1.0f;
   m.rating = j["rating"] | 0;
   m.taste = j["taste"] | 0;
+  m.inBand = j["inBand"] | -1;
   m.recipe = (const char*)(j["recipe"] | "");
   m.notes = (const char*)(j["notes"] | "");
   m.spark.clear();

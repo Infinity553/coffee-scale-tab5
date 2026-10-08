@@ -11,6 +11,7 @@
 //   SIM_FASTFILL=1       use the Tab5's fast card/fill drawing path
 //   SIM_WINDOW=20,26     espresso shot-time window for the dial-in assistant
 //   SIM_GRIND=10.0       grind setting of the next shot
+//   SIM_FLOWBAND=0.5,1.5 espresso flow band for the flow guide
 #include <M5Unified.h>
 #include <cstdlib>
 #include <ctime>
@@ -97,6 +98,10 @@ void setup() {
     if (sscanf(wnd, "%d,%d", &a, &b) == 2) { recipes::get(0).timeMin = a; recipes::get(0).timeMax = b; }
   }
   if (const char* g = getenv("SIM_GRIND")) settings.lastGrind = atof(g);
+  if (const char* fb = getenv("SIM_FLOWBAND")) {   // e.g. 0.5,1.5: espresso flow band
+    float a = 0, b = 0;
+    if (sscanf(fb, "%f,%f", &a, &b) == 2) { recipes::get(0).flowMin = a; recipes::get(0).flowMax = b; }
+  }
   brew.begin();
   ui::begin();
   if (getenv("SIM_FASTFILL")) ui::setFastFill(true);   // test the Tab5 card/fill path

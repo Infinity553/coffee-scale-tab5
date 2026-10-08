@@ -440,8 +440,8 @@ void drawRecipes() {
     resetArmed = -1;
   }
 
-  const int rowH = 80;
-  int y = ey + 174;
+  const int rowH = 70;
+  int y = ey + 160;
   bool changed = false;
 
   settingRowLabel(ex + 28, y, "Dose", "Coffee in, or weigh it with DOSE");
@@ -508,6 +508,34 @@ void drawRecipes() {
     if (r.timeMax == 0 && d > 0) { r.timeMin = 25; r.timeMax = 32; }
     else if (r.timeMin + d * step < 5) { r.timeMin = r.timeMax = 0; }
     else { r.timeMin += d * step; r.timeMax += d * step; }
+    changed = true;
+  }
+  divider(ex, y + rowH / 2, ew); y += rowH;
+
+  settingRowLabel(ex + 28, y, "Flow band", "Target flow in g/s; warns when outside");
+  if (r.flowMax > 0) snprintf(b, sizeof(b), "%.1f-%.1f", r.flowMin, r.flowMax);
+  else snprintf(b, sizeof(b), "off");
+  d = stepper(ex + ew - 28, y, b, true);
+  if (d == STEP_EDIT) {
+    float lo = r.flowMax > 0 ? r.flowMin : 1.0f, hi = r.flowMax > 0 ? r.flowMax : 2.8f;
+    openKeypad("Flow band", "Grams per second, 0 and 0 = off",
+               {{"From", lo, 0, 15, 1, "g/s", ""}, {"To", hi, 0, 15, 1, "g/s", ""}},
+               [idx](const std::vector<float>& v) {
+                 if (!(v[0] == 0 && v[1] == 0)) {
+                   if (v[0] < 0.1f) return std::string("From must be at least 0.1 g/s (or 0 and 0 for off)");
+                   if (v[1] <= v[0]) return std::string("To must be higher than From");
+                 }
+                 Recipe& rr = recipes::get(idx);
+                 rr.flowMin = v[0];
+                 rr.flowMax = v[1];
+                 recipes::save(idx);
+                 return std::string();
+               }, Screen::Recipes);
+  } else if (d) {
+    // shift the band by 0.1 g/s; from "off" start with a typical espresso band
+    if (r.flowMax <= 0 && d > 0) { r.flowMin = 1.0f; r.flowMax = 2.8f; }
+    else if (r.flowMin + d * 0.1f < 0.1f) { r.flowMin = r.flowMax = 0; }
+    else { r.flowMin = roundf((r.flowMin + d * 0.1f) * 10) / 10; r.flowMax = roundf((r.flowMax + d * 0.1f) * 10) / 10; }
     changed = true;
   }
   divider(ex, y + rowH / 2, ew); y += rowH;

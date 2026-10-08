@@ -58,6 +58,8 @@ std::string toJson() {
     o["startThreshold"] = r.startThreshold;
     o["timeMin"] = r.timeMin;
     o["timeMax"] = r.timeMax;
+    o["flowMin"] = r.flowMin;
+    o["flowMax"] = r.flowMax;
   }
   std::string out;
   serializeJsonPretty(doc, out);
@@ -130,6 +132,10 @@ bool fromJson(const std::string& json, std::string* error) {
     take(o, "startThreshold", r.startThreshold);
     take(o, "timeMin", r.timeMin);
     take(o, "timeMax", r.timeMax);
+    take(o, "flowMin", r.flowMin);
+    take(o, "flowMax", r.flowMax);
+    r.flowMin = constrain(r.flowMin, 0.0f, 15.0f);
+    r.flowMax = constrain(r.flowMax, 0.0f, 15.0f);
     r.dose = constrain(r.dose, 0.0f, 60.0f);
     r.ratio = constrain(r.ratio, 0.0f, 25.0f);
     if (!o["pourOver"].isNull()) recipes::setPourOver(i, o["pourOver"].as<bool>());

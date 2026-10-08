@@ -19,6 +19,8 @@ struct Recipe {
   uint8_t            stageCount;
   uint16_t           timeMin;         // dial-in: good shot time window (s), 0 = none
   uint16_t           timeMax;
+  float              flowMin;         // flow guide: target band (g/s), 0 = off
+  float              flowMax;
 
   // Target beverage weight, or 0 when the recipe has no target.
   float target() const {

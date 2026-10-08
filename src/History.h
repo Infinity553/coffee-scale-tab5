@@ -20,6 +20,7 @@ struct ShotMeta {
   float       grind = -1;     // grinder setting, -1 = not set
   uint8_t     rating = 0;     // 0 = not rated, 1..5 stars
   uint8_t     taste = 0;      // dialin::Taste (0 = not set, 1 sour, 2 balanced, 3 bitter)
+  int8_t      inBand = -1;    // % of the main extraction inside the flow band, -1 = not measured
   std::string recipe;
   std::string notes;
   std::vector<float> spark;   // ~24 weight points for previews

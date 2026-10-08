@@ -526,6 +526,14 @@ void drawPlotArea(int px, int py, int pw, int ph, const BrewSample* s, int n, fl
   float fMax = wMax / wStep * fStep;   // align flow ticks with weight grid
   if (fMax < fNeed) { fStep *= 2; fMax = wMax / wStep * fStep; }
 
+  // flow guide band: a faint strip on the flow axis, under the grid
+  if (o.flowHi > 0 && o.flowHi > o.flowLo) {
+    int yHi = py + ph - (int)(min(o.flowHi, fMax) / fMax * ph);
+    int yLo = py + ph - (int)(min(o.flowLo, fMax) / fMax * ph);
+    canvas.fillRect(px, yHi, pw, yLo - yHi, lerp565(SURFACE, FLOW, 0.09f));
+    text("flow band", px + pw - 8, yHi + 14, F_AXIS, lerp565(SURFACE, FLOW, 0.55f), textdatum_t::middle_right);
+  }
+
   char b[24];
   for (float v = 0; v <= wMax + 0.01f; v += wStep) {
     int yy = py + ph - (int)(v / wMax * ph);

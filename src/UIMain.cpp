@@ -110,8 +110,9 @@ static void drawWeightCard() {
   char b[48];
   if (conn && !dosing) {
     float f = brew.flow();
-    snprintf(b, sizeof(b), "%.1f g/s", f < 0 ? 0.0f : f);
-    text(b, wx + ww - 28, wy + 36, F_LABEL, HIGHLIGHT, textdatum_t::middle_right);
+    int fw = brew.flowWarning();
+    snprintf(b, sizeof(b), fw > 0 ? "HIGH  %.1f g/s" : fw < 0 ? "LOW  %.1f g/s" : "%.1f g/s", f < 0 ? 0.0f : f);
+    text(b, wx + ww - 28, wy + 36, F_LABEL, fw ? WARN : HIGHLIGHT, textdatum_t::middle_right);
   }
   if (conn && brew.stable() && brew.state() != BrewState::Running) {
     canvas.fillSmoothCircle(wx + 28 + textWidth(dosing ? "DOSING" : "WEIGHT", F_LABEL) + 18,
@@ -193,6 +194,8 @@ static void drawWeightCard() {
 // ---------------------------------------------------------------------------
 static const char* brewStateLabel() {
   if (brew.dosing()) return "DOSING";
+  if (brew.state() == BrewState::Running && brew.flowWarning())
+    return brew.flowWarning() > 0 ? "FLOW HIGH" : "FLOW LOW";
   switch (brew.state()) {
     case BrewState::Running:     return brew.timerRunning() ? "BREWING" : "RECORDING";
     case BrewState::Finished:    return "DONE";
@@ -213,6 +216,7 @@ static void drawTimerCard() {
     default: break;
   }
   if (brew.dosing()) { stFg = TEXT; stBg = SURFACE2; }
+  if (brew.state() == BrewState::Running && brew.flowWarning()) { stFg = BG; stBg = WARN; }
   chip(tx + tw - 24, ty + 36, brewStateLabel(), stFg, stBg, textdatum_t::middle_right);
   char b[24];
   float secs = brew.timerSeconds(millis());
@@ -343,6 +347,8 @@ static void drawPlotCard() {
   o.target = r.target();
   o.ghost = &ghost;
   o.recipe = &r;
+  o.flowLo = r.flowMin;
+  o.flowHi = r.flowMax;
   drawPlotArea(px, py, pw, ph, brew.samples(), n, brew.maxWeight(), brew.maxFlow(), o);
 
   if (n < 2 && st != BrewState::Running && ghost.size() < 2) {
@@ -395,9 +401,14 @@ static void drawSummary() {
   smallStat(x + 196, sy, "AVG FLOW", b);
   snprintf(b, sizeof(b), "%.1f g/s", summary.peakFlow);
   smallStat(x + 364, sy, "PEAK FLOW", b);
-  if (summary.firstDrop >= 0) snprintf(b, sizeof(b), "%.1f s", summary.firstDrop);
-  else snprintf(b, sizeof(b), "-");
-  smallStat(x + 532, sy, "FIRST DROP", b);
+  if (summary.inBand >= 0) {
+    snprintf(b, sizeof(b), "%d %%", summary.inBand);
+    smallStat(x + 532, sy, "IN FLOW BAND", b);
+  } else {
+    if (summary.firstDrop >= 0) snprintf(b, sizeof(b), "%.1f s", summary.firstDrop);
+    else snprintf(b, sizeof(b), "-");
+    smallStat(x + 532, sy, "FIRST DROP", b);
+  }
   canvas.drawFastHLine(x + 28, y + 290, w - 56, GRID);
 
   const int by = y + h - 92;
@@ -522,6 +533,7 @@ static void onShotFinished() {
   summary.dose = r.dose;
   summary.peakFlow = brew.maxFlow();
   summary.firstDrop = brew.firstDropSeconds();
+  summary.inBand = (int8_t)brew.inBandPercent();
   summary.grind = settings.lastGrind;
   summary.recipe = r.name;
   summarySaved = history::save(summary, brew.samples(), n) != 0;
@@ -536,6 +548,7 @@ void mainEvents() {
   }
   if (brew.takeShotFinished()) onShotFinished();
   if (brew.takeTargetReached()) beep(2600, 140);
+  if (brew.takeFlowWarning()) beep(900, 160);   // low tone: different from the target beep
 
   // pour-over: beep when the next pour is due
   if (stageActive()) {
@@ -577,7 +590,7 @@ static uint32_t sigWeight() {
   snprintf(b, sizeof(b), "%d|%.1f|%.1f|%d|%d|%d|%.1f|%.1f|%.1f|%d|%d|%d", scale.connected(), w,
            max(0.0f, brew.flow()), brew.stable() && brew.state() != BrewState::Running,
            brew.dosing(), recipes::activeIndex(), r.dose, r.ratio, brew.signalWeight(), k, left,
-           settings.dripComp);
+           settings.dripComp + 2 * (brew.flowWarning() + 1));
   return fnv(b);
 }
 

@@ -99,6 +99,7 @@ struct PlotOpts {
   float       target = 0;           // dashed target line
   const std::vector<BrewSample>* ghost = nullptr;
   const Recipe* recipe = nullptr;   // pour-over stage lines
+  float       flowLo = 0, flowHi = 0;   // flow guide band (g/s), 0 = none
 };
 void drawPlotArea(int px, int py, int pw, int ph, const BrewSample* s, int n,
                   float maxW, float maxF, const PlotOpts& o);

@@ -147,6 +147,11 @@ Advice advise(const ShotMeta& shot, const Recipe& r) {
       if (settings.refShotId != shot.id) a.detail += " Consider using it as your reference.";
       return a;
     default:
+      if (shot.inBand >= 0 && shot.inBand < 50) {
+        a.headline = "On time, but the flow was uneven";
+        a.detail = fmt("Only %.0f %% inside the flow band: check distribution and tamping.", shot.inBand);
+        return a;
+      }
       a.good = true;
       a.headline = fmt("On time (%.0f-%.0f s)", lo, hi);
       a.detail = fromRef ? "Same as your reference. How did it taste?"

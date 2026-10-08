@@ -38,6 +38,7 @@ class Brew {
   bool takeTargetReached();
   bool takeShotFinished();
   bool takeRunStarted();
+  bool takeFlowWarning();   // a flow warning just started (for the beep)
 
   BrewState state() const { return state_; }
   float weight() const { return weight_; }
@@ -57,6 +58,10 @@ class Brew {
   float lastShotSeconds() const { return finalTime_; }
   float finalWeight() const { return finalWeight_; }
   float firstDropSeconds() const { return firstDrop_; }  // -1 = unknown
+  // Flow guide (recipe flow band): +1 flow too high, -1 too low, 0 fine / off.
+  int   flowWarning() const { return flowWarn_; }
+  // Share of the main extraction spent inside the band, -1 if not measured.
+  int   inBandPercent() const;
   bool  hasPlot() const { return count_ > 1; }
 
  private:
@@ -65,6 +70,8 @@ class Brew {
   void addSample(float t, float w);
   void requestTare(uint32_t ms);
   void updateStability(float w, uint32_t ms);
+  void updateFlowGuide(float w, uint32_t ms);
+  void resetFlowGuide();
 
   BrewState state_ = BrewState::Armed;
   float    weight_ = 0, flow_ = 0;
@@ -106,6 +113,16 @@ class Brew {
   float    minDt_ = 0.08f;
 
   bool     evtTarget_ = false, evtFinished_ = false, evtRunStarted_ = false, targetHit_ = false;
+
+  // flow guide
+  uint32_t flowT0_ = 0;          // first drops (ms), 0 = not yet
+  uint32_t flowLastMs_ = 0;
+  uint32_t flowActiveMs_ = 0, flowInMs_ = 0;
+  uint32_t flowOutSinceMs_ = 0, flowInSinceMs_ = 0;
+  int8_t   flowOutDir_ = 0;
+  int8_t   flowWarn_ = 0;
+  bool     flowReached_ = false;  // flow has been inside the band at least once
+  bool     evtFlowWarn_ = false;
 };
 
 extern Brew brew;

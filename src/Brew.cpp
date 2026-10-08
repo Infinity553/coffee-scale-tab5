@@ -86,6 +86,7 @@ void Brew::startRun(uint32_t ms) {
   targetHit_ = false;
   signalAtW_ = -1;
   firstDrop_ = -1;
+  resetFlowGuide();
   state_ = BrewState::Running;
   evtRunStarted_ = true;
   addSample(0, baseline_);
@@ -99,6 +100,7 @@ void Brew::finishRun(uint32_t ms, float endTimer) {
   }
   finalWeight_ = weight_;
   finalTime_ = timerAccum_;
+  flowWarn_ = 0;
   state_ = BrewState::Finished;
   evtFinished_ = true;
 
@@ -205,6 +207,7 @@ void Brew::onWeight(float w, uint32_t ms) {
       if (firstDrop_ < 0 && timerRunning_ && !autoStarted_ && w - baseline_ >= 0.3f) {
         firstDrop_ = timerSeconds(ms);
       }
+      updateFlowGuide(w, ms);
       if (w > lastRiseW_ + RISE_STEP) {
         lastRiseW_ = w;
         lastRiseMs_ = ms;
@@ -273,6 +276,7 @@ void Brew::toggleTimer() {
 }
 
 void Brew::reset() {
+  resetFlowGuide();
   timerRunning_ = false;
   timerAccum_ = 0;
   count_ = 0;
@@ -293,6 +297,69 @@ void Brew::manualTare() {
 bool Brew::takeTargetReached() { bool e = evtTarget_; evtTarget_ = false; return e; }
 bool Brew::takeShotFinished()  { bool e = evtFinished_; evtFinished_ = false; return e; }
 bool Brew::takeRunStarted()    { bool e = evtRunStarted_; evtRunStarted_ = false; return e; }
+bool Brew::takeFlowWarning()   { bool e = evtFlowWarn_; evtFlowWarn_ = false; return e; }
+
+// ---------------------------------------------------------------------------
+// flow guide
+// ---------------------------------------------------------------------------
+static constexpr uint32_t FLOW_WARMUP_MS  = 4000;    // after the first drops
+static constexpr uint32_t FLOW_REACH_MS   = 10000;   // never in the band by then = choking
+static constexpr uint32_t FLOW_HIGH_MS    = 1500;    // out of band this long -> warn
+static constexpr uint32_t FLOW_LOW_MS     = 2500;
+static constexpr uint32_t FLOW_CLEAR_MS   = 1000;    // back inside this long -> clear
+static constexpr float    FLOW_END_SHARE  = 0.85f;   // of the target: the natural slowdown
+
+void Brew::resetFlowGuide() {
+  flowT0_ = flowLastMs_ = 0;
+  flowActiveMs_ = flowInMs_ = 0;
+  flowOutSinceMs_ = flowInSinceMs_ = 0;
+  flowOutDir_ = 0;
+  flowWarn_ = 0;
+  flowReached_ = false;
+}
+
+int Brew::inBandPercent() const {
+  if (flowActiveMs_ < 3000) return -1;
+  return (int)roundf(flowInMs_ * 100.0f / flowActiveMs_);
+}
+
+void Brew::updateFlowGuide(float w, uint32_t ms) {
+  const Recipe& r = recipes::active();
+  uint32_t dt = flowLastMs_ ? ms - flowLastMs_ : 0;
+  flowLastMs_ = ms;
+  if (r.flowMax <= 0 || r.flowMax <= r.flowMin) { flowWarn_ = 0; return; }
+  if (!flowT0_) {
+    if (w - baseline_ >= 0.3f) flowT0_ = ms;
+    return;
+  }
+  float target = r.target();
+  if (target > 0 && w >= target * FLOW_END_SHARE) { flowWarn_ = 0; return; }
+  if (!flowReached_ && flow_ >= r.flowMin && flow_ <= r.flowMax) flowReached_ = true;
+  uint32_t since = ms - flowT0_;
+  if (since < FLOW_WARMUP_MS || (!flowReached_ && since < FLOW_REACH_MS)) return;
+
+  flowActiveMs_ += dt;
+  bool inside = flow_ >= r.flowMin && flow_ <= r.flowMax;
+  if (inside) flowInMs_ += dt;
+
+  // a little tolerance so the warning doesn't flicker at the edges
+  int dir = flow_ > r.flowMax * 1.1f ? 1 : flow_ < r.flowMin * 0.9f ? -1 : 0;
+  if (dir != 0) {
+    if (!flowOutSinceMs_ || flowOutDir_ != dir) { flowOutSinceMs_ = ms; flowOutDir_ = dir; }
+    uint32_t need = dir > 0 ? FLOW_HIGH_MS : FLOW_LOW_MS;
+    if (flowWarn_ != dir && ms - flowOutSinceMs_ >= need) {
+      flowWarn_ = dir;
+      evtFlowWarn_ = true;
+    }
+    flowInSinceMs_ = 0;
+  } else {
+    flowOutSinceMs_ = 0;
+    if (flowWarn_ != 0) {
+      if (!flowInSinceMs_) flowInSinceMs_ = ms;
+      if (ms - flowInSinceMs_ >= FLOW_CLEAR_MS) flowWarn_ = 0;
+    }
+  }
+}
 
 void Brew::setDosing(bool on) {
   if (on == dosing_) return;

@@ -1,6 +1,7 @@
 #include "Ota.h"
 #include <Arduino.h>
 #include <Update.h>
+#include <esp_app_format.h>
 #include <esp_ota_ops.h>
 #include "Diag.h"
 
@@ -11,6 +12,25 @@ static volatile bool isActive = false, isDone = false;
 static size_t expected = 0, written = 0;
 static char err[96] = "";
 static bool confirmed = false;
+static uint8_t head[sizeof(esp_image_header_t)];   // start of the upload, checked before writing
+static size_t headLen = 0;
+
+// Refuse files that aren't Tab5 firmware before anything is written to flash,
+// e.g. the C6 radio chip image (esp32c6-v*.bin), which looks similar.
+static bool headerOk() {
+  const esp_image_header_t* h = reinterpret_cast<const esp_image_header_t*>(head);
+  if (h->magic != ESP_IMAGE_HEADER_MAGIC) {
+    snprintf(err, sizeof(err), "This is not a firmware file. Upload firmware.bin.");
+    return false;
+  }
+  if (h->chip_id != ESP_CHIP_ID_ESP32P4) {
+    snprintf(err, sizeof(err), "%s", h->chip_id == ESP_CHIP_ID_ESP32C6
+             ? "This is firmware for the C6 radio chip, not the Tab5. Upload firmware.bin."
+             : "This firmware is for a different chip. Upload the Tab5's firmware.bin.");
+    return false;
+  }
+  return true;
+}
 
 void allow(uint32_t minutes) { allowUntil = millis() + minutes * 60000UL; if (!allowUntil) allowUntil = 1; }
 void disallow() { allowUntil = 0; }
@@ -22,6 +42,7 @@ bool begin(size_t expectedSize, const char** error) {
   isDone = false;
   written = 0;
   expected = expectedSize;
+  headLen = 0;
   if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
     snprintf(err, sizeof(err), "Can't start the update: %s", Update.errorString());
     *error = err;
@@ -33,6 +54,12 @@ bool begin(size_t expectedSize, const char** error) {
 
 bool write(const uint8_t* data, size_t len) {
   if (!isActive) return false;
+  if (headLen < sizeof(head)) {   // collect the image header first
+    size_t n = min(len, sizeof(head) - headLen);
+    memcpy(head + headLen, data, n);
+    headLen += n;
+    if (headLen == sizeof(head) && !headerOk()) { abort(); return false; }
+  }
   if (Update.write(const_cast<uint8_t*>(data), len) != len) {
     snprintf(err, sizeof(err), "Writing failed: %s", Update.errorString());
     abort();

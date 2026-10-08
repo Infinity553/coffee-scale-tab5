@@ -88,7 +88,10 @@ journal for an **Acaia Lunar** (also works with Pearl S, Pyxis and other Acaia s
 **Firmware update over Wi‑Fi**
 - On the Tab5: Settings → **System** → *Allow web update (10 min)*. Uploads are refused unless
   someone at the display allowed them.
-- Web page → Download menu → *Update firmware*: pick `.pio/build/m5stack-tab5/firmware.bin`.
+- Web page → Download menu → *Update firmware*: pick `firmware-archive/coffeescale-tab5.bin` (a copy of
+  `.pio/build/m5stack-tab5/firmware.bin` that each build writes). Other files, such as the C6 image,
+  are refused before anything is written. The screen may flicker blue while the update is
+  written to flash.
   The Tab5 shows a progress screen and restarts into the new firmware.
 - Automatic rollback: the new firmware has to run for 30 s before it is marked good. If it
   crashes or restarts earlier, the Tab5 boots the previous version again, and System shows

@@ -201,6 +201,9 @@ void drawUpdating() {
   char b[16];
   snprintf(b, sizeof(b), "%d %%", p);
   text(b, W / 2, by + 56, F_BTN, TEXT, textdatum_t::middle_center);
+  if (!done)   // the panel can't read the frame buffer while flash is written
+    text("The screen may flicker while the update is written. That's normal.", W / 2, 640, F_BODY,
+         MUTED, textdatum_t::middle_center);
 }
 
 // ---------------------------------------------------------------------------

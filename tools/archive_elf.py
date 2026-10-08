@@ -1,4 +1,5 @@
-# PlatformIO post-build script: keeps a copy of every firmware ELF, named by the
+# PlatformIO post-build script: copies firmware.bin to firmware-archive/coffeescale-tab5.bin
+# for the web update, and keeps a copy of every firmware ELF, named by the
 # ELF SHA-256 that the firmware reports in its [DIAG] crash lines. With it, crash
 # addresses from any earlier build can still be decoded:
 #   riscv32-esp-elf-addr2line -pfiaC -e firmware-archive/<sha>.elf <addresses>
@@ -24,4 +25,13 @@ def archive(target, source, env):
     print("archive_elf: firmware-archive/%s.elf" % sha)
 
 
+def copy_bin(target, source, env):
+    # a fixed place for the web update: the editor's "clean" empties .pio/build
+    out_dir = os.path.join(env.subst("$PROJECT_DIR"), "firmware-archive")
+    os.makedirs(out_dir, exist_ok=True)
+    shutil.copy2(str(target[0]), os.path.join(out_dir, "coffeescale-tab5.bin"))
+    print("archive_elf: firmware-archive/coffeescale-tab5.bin (for the web update)")
+
+
 env.AddPostAction("$BUILD_DIR/${PROGNAME}.elf", archive)  # noqa: F821
+env.AddPostAction("$BUILD_DIR/${PROGNAME}.bin", copy_bin)  # noqa: F821

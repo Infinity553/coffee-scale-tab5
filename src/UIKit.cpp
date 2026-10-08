@@ -589,25 +589,14 @@ void drawPlotArea(int px, int py, int pw, int ph, const BrewSample* s, int n, fl
   if (n < 2) return;
 
   uint16_t lineC = o.dim ? ACCENT_DIM : ACCENT;
-  uint16_t fillTop = o.dim ? GRID : ACCENT_LO;
   uint16_t flowC = o.dim ? STROKE : FLOW;
   int lastCol = min(pw - 1, (int)(tEnd / tMax * pw));
-  // area fill: solid bands approximate a vertical gradient (far cheaper than per-pixel)
-  constexpr int BANDS = 16;
-  uint16_t bandC[BANDS];
-  int bandY[BANDS + 1];
-  for (int k = 0; k < BANDS; k++) bandC[k] = lerp565(fillTop, SURFACE, (float)k / (BANDS - 1));
-  for (int k = 0; k <= BANDS; k++) bandY[k] = py + ph * k / BANDS;
+  // flow line (no fill under the curves: just the lines)
   int i = 0, prevX = -1, prevYf = 0;
   for (int c = 0; c <= lastCol; c += 2) {
     float w, f;
     if (!curveAt(s, n, (float)c / pw * tMax, i, w, f)) break;
-    int xx = px + c, yw = Yw(w), yf = Yf(f);
-    for (int k = 0; k < BANDS; k++) {
-      if (bandY[k + 1] <= yw) continue;
-      int y0 = max(yw, bandY[k]);
-      canvas.fillRect(xx, y0, 2, bandY[k + 1] - y0, bandC[k]);
-    }
+    int xx = px + c, yf = Yf(f);
     if (prevX >= 0) {   // 2 px plain line: AA lines are costly
       canvas.drawLine(prevX, prevYf, xx, yf, flowC);
       canvas.drawLine(prevX, prevYf + 1, xx, yf + 1, flowC);

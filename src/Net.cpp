@@ -6,6 +6,7 @@
 #include <WiFi.h>
 #include <algorithm>
 #include <mutex>
+#include "ping/ping_sock.h"
 #include "AcaiaScale.h"
 #include "Backup.h"
 #include "Brew.h"
@@ -324,6 +325,75 @@ static void onWifiEvent(arduino_event_id_t event, arduino_event_info_t info) {
   }
 }
 
+// --- link watchdog --------------------------------------------------------------
+// Wi-Fi can report "connected" while no packets get through anymore (the radio
+// lives on the C6; its link to the P4 or the C6's Wi-Fi can stall). Then the
+// web page doesn't load and the Tab5 doesn't even answer ping. While connected
+// we ping the router; once that has worked, repeated silence means the link is
+// dead and Wi-Fi is reconnected. Routers that never answer ping are left alone.
+static constexpr uint32_t PROBE_MS = 15000;
+static constexpr int PROBE_FAILS = 3;
+static esp_ping_handle_t pingSession = nullptr;
+static volatile bool pingBusy = false, pingOk = false;
+static uint32_t lastProbe = 0;
+static bool routerAnswers = false;   // the router answered at least once on this connection
+static int probeFails = 0;
+
+static void onPingSuccess(esp_ping_handle_t, void*) { pingOk = true; }
+static void onPingEnd(esp_ping_handle_t, void*) { pingBusy = false; }
+
+static void probeReset() {
+  routerAnswers = false;
+  probeFails = 0;
+  lastProbe = millis();
+}
+
+static void probeStart() {
+  if (pingSession) { esp_ping_delete_session(pingSession); pingSession = nullptr; }
+  IPAddress gw = WiFi.gatewayIP();
+  if (gw == IPAddress((uint32_t)0)) return;
+  esp_ping_config_t cfg = ESP_PING_DEFAULT_CONFIG();
+  IP_ADDR4(&cfg.target_addr, gw[0], gw[1], gw[2], gw[3]);
+  cfg.count = 2;
+  cfg.interval_ms = 300;
+  cfg.timeout_ms = 1500;
+  cfg.task_stack_size = 3072;
+  esp_ping_callbacks_t cb = {};
+  cb.on_ping_success = onPingSuccess;
+  cb.on_ping_end = onPingEnd;
+  if (esp_ping_new_session(&cfg, &cb, &pingSession) != ESP_OK) return;
+  pingOk = false;
+  pingBusy = true;
+  esp_ping_start(pingSession);
+}
+
+// Returns true when the link looks dead and Wi-Fi should be reconnected.
+static bool probeLoop() {
+  uint32_t now = millis();
+  if (pingBusy) return false;
+  if (pingSession) {   // a probe finished
+    esp_ping_delete_session(pingSession);
+    pingSession = nullptr;
+    if (pingOk) {
+      if (!routerAnswers) Serial.printf("[WiFi] router %s answers, link watchdog active\n",
+                                        WiFi.gatewayIP().toString().c_str());
+      routerAnswers = true;
+      probeFails = 0;
+    } else if (routerAnswers) {
+      probeFails++;
+      Serial.printf("[WiFi] router not answering (%d/%d), RSSI %d dBm\n", probeFails, PROBE_FAILS,
+                    (int)WiFi.RSSI());
+      if (probeFails >= PROBE_FAILS) return true;
+      lastProbe = now - PROBE_MS + 3000;   // check again soon
+    }
+  }
+  if (now - lastProbe >= PROBE_MS) {
+    lastProbe = now;
+    probeStart();
+  }
+  return false;
+}
+
 static void startServices() {
   if (!serverUp) {
     server.begin();
@@ -453,12 +523,22 @@ static void task(void*) {
     if (settings.wifiEnabled && settings.wifiMode == WIFI_HOME && settings.wifiSsid.length()) {
       bool c = WiFi.status() == WL_CONNECTED;
       if (c && !wasConnected) {
+        probeReset();
         startServices();
         setStatus(true, false, WiFi.localIP().toString().c_str(), settings.wifiSsid.c_str());
         if (!ntpStarted) {
           configTzTime(DEVICE_TZ, "pool.ntp.org", "time.google.com");
           ntpStarted = true;
         }
+      } else if (c && probeLoop()) {
+        Serial.printf("[WiFi] connected to %s but no traffic gets through, reconnecting\n",
+                      settings.wifiSsid.c_str());
+        setStatus(false, true, "", settings.wifiSsid.c_str(), "No traffic, reconnecting");
+        WiFi.disconnect(false, false);
+        delay(500);
+        WiFi.begin(settings.wifiSsid.c_str(), settings.wifiPass.c_str());
+        lastRetry = millis();
+        c = false;
       } else if (!c && wasConnected) {
         setStatus(false, true, "", settings.wifiSsid.c_str());
         lastRetry = millis();

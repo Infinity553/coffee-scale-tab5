@@ -129,6 +129,11 @@ Use a FAT32‑formatted microSD card. Shots go to `/coffeescale/` (`index.json` 
 
 ### Troubleshooting
 
+- **Wi‑Fi connected, but the web page doesn't load** (the Tab5 doesn't answer ping either):
+  while connected, the Tab5 pings its router every 15 s. Once the router has answered, three
+  missed checks in a row reconnect Wi‑Fi. Serial log: `[WiFi] router not answering ...` and
+  `... no traffic gets through, reconnecting`. Routers that never answer ping turn the check off.
+
 - **Connected, but the weight doesn't change**: the display marks this with *NO DATA FROM
   SCALE* and an amber dot. It asks the scale for weight again after 1.5–3 s and reconnects
   after 10 s without readings. The serial monitor logs `[BLE] no weight for ...`.

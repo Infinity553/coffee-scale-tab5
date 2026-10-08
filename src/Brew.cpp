@@ -327,23 +327,24 @@ void Brew::updateFlowGuide(float w, uint32_t ms) {
   const Recipe& r = recipes::active();
   uint32_t dt = flowLastMs_ ? ms - flowLastMs_ : 0;
   flowLastMs_ = ms;
-  if (r.flowMax <= 0 || r.flowMax <= r.flowMin) { flowWarn_ = 0; return; }
+  float lo, hi;
+  if (!r.flowBand(lo, hi)) { flowWarn_ = 0; return; }
   if (!flowT0_) {
     if (w - baseline_ >= 0.3f) flowT0_ = ms;
     return;
   }
   float target = r.target();
   if (target > 0 && w >= target * FLOW_END_SHARE) { flowWarn_ = 0; return; }
-  if (!flowReached_ && flow_ >= r.flowMin && flow_ <= r.flowMax) flowReached_ = true;
+  if (!flowReached_ && flow_ >= lo && flow_ <= hi) flowReached_ = true;
   uint32_t since = ms - flowT0_;
   if (since < FLOW_WARMUP_MS || (!flowReached_ && since < FLOW_REACH_MS)) return;
 
   flowActiveMs_ += dt;
-  bool inside = flow_ >= r.flowMin && flow_ <= r.flowMax;
+  bool inside = flow_ >= lo && flow_ <= hi;
   if (inside) flowInMs_ += dt;
 
   // a little tolerance so the warning doesn't flicker at the edges
-  int dir = flow_ > r.flowMax * 1.1f ? 1 : flow_ < r.flowMin * 0.9f ? -1 : 0;
+  int dir = flow_ > hi * 1.1f ? 1 : flow_ < lo * 0.9f ? -1 : 0;
   if (dir != 0) {
     if (!flowOutSinceMs_ || flowOutDir_ != dir) { flowOutSinceMs_ = ms; flowOutDir_ = dir; }
     uint32_t need = dir > 0 ? FLOW_HIGH_MS : FLOW_LOW_MS;

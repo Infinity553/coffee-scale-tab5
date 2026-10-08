@@ -347,8 +347,7 @@ static void drawPlotCard() {
   o.target = r.target();
   o.ghost = &ghost;
   o.recipe = &r;
-  o.flowLo = r.flowMin;
-  o.flowHi = r.flowMax;
+  if (!r.flowBand(o.flowLo, o.flowHi)) o.flowLo = o.flowHi = 0;
   drawPlotArea(px, py, pw, ph, brew.samples(), n, brew.maxWeight(), brew.maxFlow(), o);
 
   if (n < 2 && st != BrewState::Running && ghost.size() < 2) {

@@ -512,31 +512,49 @@ void drawRecipes() {
   }
   divider(ex, y + rowH / 2, ew); y += rowH;
 
-  settingRowLabel(ex + 28, y, "Flow band", "Target flow in g/s; warns when outside");
-  if (r.flowMax > 0) snprintf(b, sizeof(b), "%.1f-%.1f", r.flowMin, r.flowMax);
-  else snprintf(b, sizeof(b), "off");
-  d = stepper(ex + ew - 28, y, b, true);
-  if (d == STEP_EDIT) {
-    float lo = r.flowMax > 0 ? r.flowMin : 1.0f, hi = r.flowMax > 0 ? r.flowMax : 2.8f;
-    openKeypad("Flow band", "Grams per second, 0 and 0 = off",
-               {{"From", lo, 0, 15, 1, "g/s", ""}, {"To", hi, 0, 15, 1, "g/s", ""}},
-               [idx](const std::vector<float>& v) {
-                 if (!(v[0] == 0 && v[1] == 0)) {
-                   if (v[0] < 0.1f) return std::string("From must be at least 0.1 g/s (or 0 and 0 for off)");
+  {
+    float lo, hi;
+    bool have = r.flowBand(lo, hi);
+    const char* sub = r.flowMode == FLOW_AUTO
+                          ? (have ? "Auto: from target yield and shot time" : "Auto: needs a target and a shot time")
+                          : r.flowMode == FLOW_SET ? "Set by you; tap the value to change it"
+                                                   : "No flow warnings for this recipe";
+    settingRowLabel(ex + 28, y, "Flow band", sub);
+    auto openBand = [&](float l, float h) {
+      openKeypad("Flow band", "Grams per second",
+                 {{"From", l, 0.1f, 15, 1, "g/s", ""}, {"To", h, 0.1f, 15, 1, "g/s", ""}},
+                 [idx](const std::vector<float>& v) {
                    if (v[1] <= v[0]) return std::string("To must be higher than From");
-                 }
-                 Recipe& rr = recipes::get(idx);
-                 rr.flowMin = v[0];
-                 rr.flowMax = v[1];
-                 recipes::save(idx);
-                 return std::string();
-               }, Screen::Recipes);
-  } else if (d) {
-    // shift the band by 0.1 g/s; from "off" start with a typical espresso band
-    if (r.flowMax <= 0 && d > 0) { r.flowMin = 1.0f; r.flowMax = 2.8f; }
-    else if (r.flowMin + d * 0.1f < 0.1f) { r.flowMin = r.flowMax = 0; }
-    else { r.flowMin = roundf((r.flowMin + d * 0.1f) * 10) / 10; r.flowMax = roundf((r.flowMax + d * 0.1f) * 10) / 10; }
-    changed = true;
+                   Recipe& rr = recipes::get(idx);
+                   rr.flowMode = FLOW_SET;
+                   rr.flowMin = v[0];
+                   rr.flowMax = v[1];
+                   recipes::save(idx);
+                   return std::string();
+                 }, Screen::Recipes);
+    };
+    static const char* const modes[] = {"Auto", "Set", "Off"};
+    const int segW = 76, segRight = ex + ew - 28;
+    int m = segmented(segRight, y, modes, 3, r.flowMode, segW);
+    // the band in effect, tappable to type your own
+    const int vw = 128, vx = segRight - 3 * segW - 12 - vw;
+    if (r.flowMode != FLOW_OFF) {
+      bool tap = hit(vx, y - 27, vw, 54);
+      canvas.fillSmoothRoundRect(vx, y - 27, vw, 54, 12, tap || flashing(vx, y - 27) ? STROKE : SURFACE2);
+      canvas.drawFastHLine(vx + 14, y + 18, vw - 28, STROKE);
+      if (have) snprintf(b, sizeof(b), "%.1f-%.1f", lo, hi);
+      else snprintf(b, sizeof(b), "-");
+      text(b, vx + vw / 2, y + 1, F_LABEL, HIGHLIGHT, textdatum_t::middle_center);
+      if (tap) openBand(have ? lo : 1.0f, have ? hi : 2.8f);
+    }
+    if (m >= 0 && m != r.flowMode) {
+      if (m == FLOW_SET) {
+        openBand(have ? lo : 1.0f, have ? hi : 2.8f);   // start from the band you saw
+      } else {
+        r.flowMode = m;
+        changed = true;
+      }
+    }
   }
   divider(ex, y + rowH / 2, ew); y += rowH;
 

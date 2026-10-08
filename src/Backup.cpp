@@ -58,6 +58,7 @@ std::string toJson() {
     o["startThreshold"] = r.startThreshold;
     o["timeMin"] = r.timeMin;
     o["timeMax"] = r.timeMax;
+    o["flowMode"] = r.flowMode == FLOW_SET ? "set" : r.flowMode == FLOW_OFF ? "off" : "auto";
     o["flowMin"] = r.flowMin;
     o["flowMax"] = r.flowMax;
   }
@@ -132,6 +133,10 @@ bool fromJson(const std::string& json, std::string* error) {
     take(o, "startThreshold", r.startThreshold);
     take(o, "timeMin", r.timeMin);
     take(o, "timeMax", r.timeMax);
+    if (o["flowMode"].is<const char*>()) {
+      const char* m = o["flowMode"];
+      r.flowMode = !strcmp(m, "set") ? FLOW_SET : !strcmp(m, "off") ? FLOW_OFF : FLOW_AUTO;
+    }
     take(o, "flowMin", r.flowMin);
     take(o, "flowMax", r.flowMax);
     r.flowMin = constrain(r.flowMin, 0.0f, 15.0f);

@@ -30,8 +30,11 @@ journal for an **Acaia Lunar** (also works with Pearl S, Pyxis and other Acaia s
 - **Drip compensation**: the target beep comes early by the weight that still ends up in
   the cup after you stop. That amount is learned from your last shots (the white tick
   on the progress bar).
-- **Flow guide**: each recipe can have a target flow band (espresso 1.0–2.8 g/s by default),
-  shown as a strip on the plot. When the flow stays above or below it, the timer card shows
+- **Flow guide**: each recipe has a target flow band, shown as a strip on the plot. On **Auto**
+  it is calculated from the target yield and the shot-time window (0.8 × yield ÷ longest time
+  to 2 × yield ÷ shortest time; espresso 36 g in 25–32 s → 0.9–2.9 g/s) and follows any change
+  to dose, ratio or time. **Set** lets you type your own band, **Off** disables it (default for
+  pour-over). When the flow stays above or below it, the timer card shows
   **FLOW HIGH / FLOW LOW**, the flow readout turns amber and it beeps once (the first drops and
   the natural slowdown at the end don't count). The summary shows how much of the shot was in
   the band, and the dial-in assistant flags uneven flow.

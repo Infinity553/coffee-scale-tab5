@@ -10,12 +10,13 @@ static const RecipeStage V60_STAGES[] = {
 };
 
 static const Recipe DEFAULTS[recipes::COUNT] = {
-    // name        pourOver dose   ratio  stop  thr   stages         time window (s)  flow band (g/s)
-    {"Espresso",   false,   18.0f, 2.0f,  4,    0.5f, nullptr, 0,    25, 32,           1.0f, 2.8f},
-    {"Ristretto",  false,   18.0f, 1.5f,  4,    0.5f, nullptr, 0,    18, 25,           0.6f, 1.8f},
-    {"Lungo",      false,   18.0f, 3.0f,  5,    0.5f, nullptr, 0,    32, 42,           1.5f, 3.5f},
-    {"Pour-over",  true,    15.0f, 16.5f, 30,   1.0f, V60_STAGES, 3, 150, 210,         0.0f, 0.0f},
-    {"Free",       false,   0.0f,  0.0f,  4,    0.5f, nullptr, 0,    0, 0,             0.0f, 0.0f},
+    // name        pourOver dose   ratio  stop  thr   stages         time window (s)  flow band (mode, set lo/hi)
+    {"Espresso",   false,   18.0f, 2.0f,  4,    0.5f, nullptr, 0,    25, 32,           FLOW_AUTO, 1.0f, 2.8f},
+    {"Ristretto",  false,   18.0f, 1.5f,  4,    0.5f, nullptr, 0,    18, 25,           FLOW_AUTO, 0.8f, 2.8f},
+    {"Lungo",      false,   18.0f, 3.0f,  5,    0.5f, nullptr, 0,    32, 42,           FLOW_AUTO, 1.0f, 3.4f},
+    // pour-over flow comes in pulses: the guide is off by default
+    {"Pour-over",  true,    15.0f, 16.5f, 30,   1.0f, V60_STAGES, 3, 150, 210,         FLOW_OFF, 3.0f, 8.0f},
+    {"Free",       false,   0.0f,  0.0f,  4,    0.5f, nullptr, 0,    0, 0,             FLOW_AUTO, 1.0f, 2.8f},
 };
 
 static Recipe list[recipes::COUNT];
@@ -46,6 +47,7 @@ void load() {
     snprintf(k, sizeof(k), "t%d", i); list[i].startThreshold = p.getFloat(k, list[i].startThreshold);
     snprintf(k, sizeof(k), "a%d", i); list[i].timeMin = p.getUShort(k, list[i].timeMin);
     snprintf(k, sizeof(k), "b%d", i); list[i].timeMax = p.getUShort(k, list[i].timeMax);
+    snprintf(k, sizeof(k), "m%d", i); list[i].flowMode = p.getUChar(k, list[i].flowMode);
     snprintf(k, sizeof(k), "f%d", i); list[i].flowMin = p.getFloat(k, list[i].flowMin);
     snprintf(k, sizeof(k), "g%d", i); list[i].flowMax = p.getFloat(k, list[i].flowMax);
   }
@@ -63,6 +65,7 @@ void save(int i) {
   snprintf(k, sizeof(k), "t%d", i); p.putFloat(k, list[i].startThreshold);
   snprintf(k, sizeof(k), "a%d", i); p.putUShort(k, list[i].timeMin);
   snprintf(k, sizeof(k), "b%d", i); p.putUShort(k, list[i].timeMax);
+  snprintf(k, sizeof(k), "m%d", i); p.putUChar(k, list[i].flowMode);
   snprintf(k, sizeof(k), "f%d", i); p.putFloat(k, list[i].flowMin);
   snprintf(k, sizeof(k), "g%d", i); p.putFloat(k, list[i].flowMax);
   snprintf(k, sizeof(k), "n%d", i); p.putString(k, list[i].name);

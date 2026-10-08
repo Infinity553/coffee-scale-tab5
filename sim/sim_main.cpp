@@ -100,7 +100,7 @@ void setup() {
   if (const char* g = getenv("SIM_GRIND")) settings.lastGrind = atof(g);
   if (const char* fb = getenv("SIM_FLOWBAND")) {   // e.g. 0.5,1.5: espresso flow band
     float a = 0, b = 0;
-    if (sscanf(fb, "%f,%f", &a, &b) == 2) { recipes::get(0).flowMin = a; recipes::get(0).flowMax = b; }
+    if (sscanf(fb, "%f,%f", &a, &b) == 2) { recipes::get(0).flowMode = FLOW_SET; recipes::get(0).flowMin = a; recipes::get(0).flowMax = b; }
   }
   brew.begin();
   ui::begin();

@@ -30,8 +30,12 @@ static constexpr uint8_t MSG_EVENT     = 0x0C;
 static constexpr uint8_t MSG_TIMER     = 0x0D;
 
 static constexpr uint32_t HEARTBEAT_MS   = 2750;
-static constexpr uint32_t REIDENT_MS     = 6000;   // no data -> re-send ident
-static constexpr uint32_t LINK_DEAD_MS   = 15000;  // no data -> drop link
+// The watchdog looks at weight readings, not just any packet: a scale can keep
+// answering heartbeats and sending battery status while weight notifications
+// stopped (e.g. the notification request got lost right after connecting).
+static constexpr uint32_t FIRST_WEIGHT_MS = 1500;  // after connecting: no weight yet -> ident again
+static constexpr uint32_t REIDENT_MS      = 3000;  // no weight -> re-send ident + notification request
+static constexpr uint32_t LINK_DEAD_MS    = 10000; // no weight -> drop the link and reconnect
 static constexpr uint32_t SCAN_SECONDS   = 3;
 
 // --- BLE objects (only touched from the BLE task) ------------------------------
@@ -272,17 +276,17 @@ bool AcaiaScale::connectTo(void* advDev) {
     return false;
   }
   writeWithResponse = !writeChar->canWriteNoResponse();
+  rxLen_ = 0;   // before notifications can arrive
   if (notifyChar->canNotify()) notifyChar->registerForNotify(notifyCb);
-
-  rxLen_ = 0;
   LOCK();
   connName_ = dev->getName().c_str();
   connAddr_ = dev->getAddress().toString().c_str();
   UNLOCK();
 
-  delay(100);
+  delay(250);   // give the scale a moment after subscribing before identifying
   sendIdent();
-  lastPacketMs_ = millis();
+  lastPacketMs_ = weightMs_ = connectedMs_ = millis();
+  reidents_ = 0;
   state_ = ScaleState::Connected;
   return true;
 }
@@ -409,14 +413,20 @@ void AcaiaScale::taskLoop() {
       sendMessage(MSG_HEARTBEAT, hb, sizeof(hb));
       lastHeartbeat = now;
     }
-    uint32_t silent = now - lastPacketMs_;
-    if (silent > LINK_DEAD_MS) {
-      log_w("scale silent, dropping link");
+    uint32_t noWeight = now - weightMs_;
+    bool gotWeight = weightMs_ != connectedMs_;
+    if (noWeight > LINK_DEAD_MS) {
+      Serial.printf("[BLE] no weight for %lu s (last packet %lu ms ago, %d re-idents), reconnecting\n",
+                    (unsigned long)(noWeight / 1000), (unsigned long)(now - lastPacketMs_), reidents_);
       client->disconnect();
       linkLost_ = true;
-    } else if (silent > REIDENT_MS && now - lastIdent > REIDENT_MS) {
+    } else if (now - lastIdent > (gotWeight ? REIDENT_MS : FIRST_WEIGHT_MS) &&
+               noWeight > (gotWeight ? REIDENT_MS : FIRST_WEIGHT_MS)) {
+      Serial.printf("[BLE] no weight for %lu ms (last packet %lu ms ago), sending ident again\n",
+                    (unsigned long)noWeight, (unsigned long)(now - lastPacketMs_));
       sendIdent();
       lastIdent = now;
+      reidents_++;
     }
     vTaskDelay(pdMS_TO_TICKS(20));
   }

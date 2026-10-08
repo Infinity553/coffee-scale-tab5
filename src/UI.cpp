@@ -179,7 +179,7 @@ static uint32_t screenSignature() {
   uint32_t h = 2166136261u;
   auto mix = [&](uint32_t v) { h = (h ^ v) * 16777619u; };
   auto mixs = [&](const std::string& s) { for (char ch : s) mix((uint8_t)ch); mix(0); };
-  mix((uint32_t)scale.state());
+  mix((uint32_t)scale.state() + 16 * scale.weightFresh());
   mix((uint32_t)scale.battery());
   mix((uint32_t)battery::level());
   mix(battery::charging());

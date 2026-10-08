@@ -129,6 +129,10 @@ Use a FAT32‑formatted microSD card. Shots go to `/coffeescale/` (`index.json` 
 
 ### Troubleshooting
 
+- **Connected, but the weight doesn't change**: the display marks this with *NO DATA FROM
+  SCALE* and an amber dot. It asks the scale for weight again after 1.5–3 s and reconnects
+  after 10 s without readings. The serial monitor logs `[BLE] no weight for ...`.
+
 - **No scales found**: the serial monitor prints the ESP‑Hosted host and C6 co‑processor
   firmware versions at boot. If BLE isn't active or the log says the C6 firmware is out of
   date, update the C6 with the bundled updater (it downloads the matching ESP‑Hosted

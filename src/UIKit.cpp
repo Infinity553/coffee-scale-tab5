@@ -270,7 +270,7 @@ void statusPill(int cx, int cy) {
   switch (scale.state()) {
     case ScaleState::Connected:
       snprintf(buf, sizeof(buf), "%s", name.length() ? name.c_str() : "Scale connected");
-      label = buf; dot = GOOD; break;
+      label = buf; dot = scale.weightFresh() ? GOOD : WARN; break;
     case ScaleState::Connecting:  label = "Connecting..."; dot = WARN; break;
     case ScaleState::Discovering: label = "Scanning..."; dot = WARN; break;
     case ScaleState::Searching:   label = "Waiting for scale"; dot = BAD; break;

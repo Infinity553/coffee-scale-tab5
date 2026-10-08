@@ -50,6 +50,8 @@ class AcaiaScale {
   float weight() const { return weight_; }
   int   battery() const { return battery_; }   // -1 = unknown
   uint32_t lastPacketMs() const { return lastPacketMs_; }
+  // Connected and weight readings are arriving (the Lunar sends ~10 per second).
+  bool  weightFresh() const { return connected() && millis() - weightMs_ < 1500; }
 
   // Internal (called from BLE callbacks)
   void onNotify(const uint8_t* data, size_t len);
@@ -84,6 +86,8 @@ class AcaiaScale {
   volatile uint32_t weightMs_ = 0;
   volatile int      battery_ = -1;
   volatile uint32_t lastPacketMs_ = 0;
+  uint32_t          connectedMs_ = 0;
+  int               reidents_ = 0;
 
   uint8_t  rx_[128];
   size_t   rxLen_ = 0;

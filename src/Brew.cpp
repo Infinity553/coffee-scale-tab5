@@ -241,7 +241,8 @@ void Brew::tick(uint32_t ms) {
   uint8_t stopDelay = recipes::active().stopDelayS;
   if (state_ == BrewState::Running && settings.autoStop && stopDelay > 0) {
     bool flowed = (lastRiseW_ - baseline_) > MIN_SHOT_YIELD;
-    if (flowed && ms - runStartMs_ > MIN_SHOT_MS &&
+    // only with live readings: a gap in the data is not "the weight stopped rising"
+    if (flowed && scale.weightFresh() && ms - runStartMs_ > MIN_SHOT_MS &&
         ms - lastRiseMs_ >= stopDelay * 1000UL) {
       // shot time ends when the weight stopped rising
       uint32_t end = lastRiseMs_ > timerStartMs_ ? lastRiseMs_ : ms;

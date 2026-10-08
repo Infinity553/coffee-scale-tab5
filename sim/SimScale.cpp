@@ -1,5 +1,6 @@
 // Simulated Acaia scale for the desktop UI preview: plays a scripted
 // espresso shot (cup placed, auto tare, ~30 s extraction, auto stop).
+#include <cstdio>
 #include <cstdlib>
 #include <random>
 #include "AcaiaScale.h"
@@ -48,11 +49,19 @@ bool AcaiaScale::poll(float& grams, uint32_t& atMs) {
   if (t < 1.2f) { state_ = ScaleState::Searching; return false; }
   state_ = ScaleState::Connected;
   battery_ = 78;
+  static float stallFrom = -1, stallTo = -1;   // SIM_STALL=from,to (seconds): no weight readings
+  static bool stallRead = false;
+  if (!stallRead) {
+    stallRead = true;
+    if (const char* e = getenv("SIM_STALL")) sscanf(e, "%f,%f", &stallFrom, &stallTo);
+  }
+  if (t >= stallFrom && t < stallTo) return false;
   if (now - lastSampleMs < 100) return false;  // ~10 Hz like the Lunar
   lastSampleMs = now;
   grams = roundf((rawWeight(t) - tareOffset) * 10) / 10;
   atMs = now;
   weight_ = grams;
+  weightMs_ = now;
   return true;
 }
 

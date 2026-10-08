@@ -103,13 +103,16 @@ static void drawWeightCard() {
   const Recipe& r = recipes::active();
   text(dosing ? "DOSING" : "WEIGHT", wx + 28, wy + 36, F_LABEL, dosing ? ACCENT : MUTED);
   char b[48];
-  if (conn && !dosing) {
+  bool fresh = scale.weightFresh();
+  if (conn && !fresh) {
+    text("NO DATA FROM SCALE", wx + ww - 28, wy + 36, F_LABEL, WARN, textdatum_t::middle_right);
+  } else if (conn && !dosing) {
     float f = brew.flow();
     int fw = brew.flowWarning();
     snprintf(b, sizeof(b), fw > 0 ? "HIGH  %.1f g/s" : fw < 0 ? "LOW  %.1f g/s" : "%.1f g/s", f < 0 ? 0.0f : f);
     text(b, wx + ww - 28, wy + 36, F_LABEL, fw ? WARN : HIGHLIGHT, textdatum_t::middle_right);
   }
-  if (conn && brew.stable() && brew.state() != BrewState::Running) {
+  if (conn && fresh && brew.stable() && brew.state() != BrewState::Running) {
     canvas.fillSmoothCircle(wx + 28 + textWidth(dosing ? "DOSING" : "WEIGHT", F_LABEL) + 18,
                             wy + 36, 6, GOOD);
   }
@@ -118,7 +121,7 @@ static void drawWeightCard() {
     float w = brew.weight();
     if (fabsf(w) < 0.05f) w = 0;
     snprintf(b, sizeof(b), "%.1f", w);
-    segText(b, wx + ww - 84, wy + 82, dh, TEXT, true);
+    segText(b, wx + ww - 84, wy + 82, dh, fresh ? TEXT : MUTED, true);
   } else {
     segText("--.-", wx + ww - 84, wy + 82, dh, STROKE, true);
   }
@@ -567,7 +570,7 @@ static uint32_t sigTop() {
   char b[128];
   net::Status ns = net::status();
   bool pulse = scale.state() != ScaleState::Connected && (millis() / 600) % 2;
-  snprintf(b, sizeof(b), "%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%s", (int)scale.state(), scale.battery(), pulse,
+  snprintf(b, sizeof(b), "%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%s", (int)scale.state() + 16 * scale.weightFresh(), scale.battery(), pulse,
            recipes::activeIndex(), ns.enabled, ns.connected, flashActive(millis()),
            diag::bannerActive(millis()), battery::level(), battery::charging(),
            scale.connectedName().c_str());
@@ -582,7 +585,7 @@ static uint32_t sigWeight() {
   float t = brew.timerSeconds(millis());
   int k = stageActive() ? currentStage(r, t) : -1;
   int left = (k >= 0 && k + 1 < r.stageCount) ? (int)ceilf(r.stages[k + 1].atSec - t) : -1;
-  snprintf(b, sizeof(b), "%d|%.1f|%.1f|%d|%d|%d|%.1f|%.1f|%.1f|%d|%d|%d", scale.connected(), w,
+  snprintf(b, sizeof(b), "%d|%.1f|%.1f|%d|%d|%d|%.1f|%.1f|%.1f|%d|%d|%d", scale.connected() + 2 * scale.weightFresh(), w,
            max(0.0f, brew.flow()), brew.stable() && brew.state() != BrewState::Running,
            brew.dosing(), recipes::activeIndex(), r.dose, r.ratio, brew.signalWeight(), k, left,
            settings.dripComp + 2 * (brew.flowWarning() + 1));

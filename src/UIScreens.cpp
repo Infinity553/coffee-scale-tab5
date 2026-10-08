@@ -1,6 +1,8 @@
 // Settings, first-run setup, scale scan and recipe screens.
 #include "AcaiaScale.h"
 #include "Backup.h"
+#include "Battery.h"
+#include "Ota.h"
 #include "Blit.h"
 #include "Diag.h"
 #include "History.h"
@@ -183,6 +185,25 @@ void drawWelcome() {
 }
 
 // ---------------------------------------------------------------------------
+// firmware update in progress
+// ---------------------------------------------------------------------------
+void drawUpdating() {
+  bool done = ota::succeeded();
+  canvas.fillSmoothCircle(W / 2, 220, 80, SURFACE2);
+  iconCup(W / 2 - 6, 238, 36, ACCENT, SURFACE2);
+  text(done ? "Update installed" : "Updating firmware", W / 2, 360, F_TITLE, TEXT, textdatum_t::middle_center);
+  text(done ? "Restarting with the new firmware..." : "Keep the Tab5 powered and the page open.", W / 2, 410,
+       F_BODYL, MUTED, textdatum_t::middle_center);
+  int p = ota::progress();
+  const int bw = 640, bx = (W - bw) / 2, by = 470;
+  canvas.fillSmoothRoundRect(bx, by, bw, 20, 10, SURFACE2);
+  if (p > 0) canvas.fillSmoothRoundRect(bx, by, max(20, bw * p / 100), 20, 10, done ? GOOD : ACCENT);
+  char b[16];
+  snprintf(b, sizeof(b), "%d %%", p);
+  text(b, W / 2, by + 56, F_BTN, TEXT, textdatum_t::middle_center);
+}
+
+// ---------------------------------------------------------------------------
 // system: backup / restore, about
 // ---------------------------------------------------------------------------
 void drawSystem() {
@@ -245,20 +266,44 @@ void drawSystem() {
   const int rx = 644, rw = W - 24 - rx;
   card(rx, top, rw, 600);
   text("ABOUT", rx + 28, top + 34, F_LABEL, MUTED);
-  struct { const char* k; std::string v; } rows[4];
-  rows[0] = {"Firmware", diag::firmwareId()};
+  struct { const char* k; std::string v; } rows[5];
+  rows[0] = {"Firmware", std::string(diag::firmwareId()) + (ota::rolledBack() ? " (update undone)" : "")};
   rows[1] = {"Display", blit::active() ? "Hardware rotation (PPA)" : "Software rotation"};
-  snprintf(b, sizeof(b), "%u", (unsigned)history::count());
-  rows[2] = {"Shots saved", sd ? b : "no SD card"};
-  snprintf(b, sizeof(b), "%llu MB", (unsigned long long)(storage::freeBytes() >> 20));
-  rows[3] = {"SD card free", sd ? b : "-"};
-  for (int i = 0; i < 4; i++) {
-    int ry = top + 96 + i * 62;
+  if (battery::present())
+    snprintf(b, sizeof(b), "%d %%, %.2f V%s", battery::level(), battery::voltageMv() / 1000.0f,
+             battery::charging() ? ", charging" : "");
+  else
+    snprintf(b, sizeof(b), "no battery (USB power)");
+  rows[2] = {"Tab5 battery", b};
+  char shots[24];
+  snprintf(shots, sizeof(shots), "%u", (unsigned)history::count());
+  rows[3] = {"Shots saved", sd ? shots : "no SD card"};
+  char freeMb[24];
+  snprintf(freeMb, sizeof(freeMb), "%llu MB", (unsigned long long)(storage::freeBytes() >> 20));
+  rows[4] = {"SD card free", sd ? freeMb : "-"};
+  for (int i = 0; i < 5; i++) {
+    int ry = top + 84 + i * 54;
     text(rows[i].k, rx + 28, ry, F_LABEL, MUTED);
-    text(rows[i].v.c_str(), rx + rw - 28, ry, F_LABEL, TEXT, textdatum_t::middle_right);
-    divider(rx, ry + 31, rw);
+    textFit(rows[i].v.c_str(), rx + 210, ry, rw - 238, F_LABEL, TEXT);
+    divider(rx, ry + 27, rw);
   }
-  if (button(rx + 28, top + 600 - 98, rw - 56, 70, "Run first-time setup", Btn::Ghost, true, F_LABEL)) {
+
+  // firmware update over Wi-Fi: uploads only while allowed here
+  int uy = top + 84 + 5 * 54 + 8;
+  text("Firmware update over Wi-Fi", rx + 28, uy, F_LABEL, TEXT);
+  if (ota::allowed()) {
+    uint32_t s = ota::allowedSecondsLeft();
+    snprintf(b, sizeof(b), "Allowed for %lu:%02lu. Upload firmware.bin on the web page.",
+             (unsigned long)(s / 60), (unsigned long)(s % 60));
+    text(b, rx + 28, uy + 28, F_AXIS, GOOD);
+  } else {
+    text("Uploads from the web page need your OK here first.", rx + 28, uy + 28, F_AXIS, MUTED);
+  }
+  if (button(rx + 28, uy + 50, rw - 56, 60, ota::allowed() ? "Stop allowing updates" : "Allow web update (10 min)",
+             ota::allowed() ? Btn::Ghost : Btn::Secondary, true, F_LABEL)) {
+    if (ota::allowed()) ota::disallow(); else ota::allow(10);
+  }
+  if (button(rx + 28, top + 600 - 84, rw - 56, 60, "Run first-time setup", Btn::Ghost, true, F_LABEL)) {
     settings.configured = false;
     settings.save();
     setScreen(Screen::SetupWelcome);

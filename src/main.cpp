@@ -6,6 +6,8 @@
 #include <ctime>
 #include "AcaiaScale.h"
 #include "Backup.h"
+#include "Battery.h"
+#include "Ota.h"
 #include "Brew.h"
 #include "Diag.h"
 #include "History.h"
@@ -80,7 +82,9 @@ void loop() {
   }
   if (net::takeTimeSynced()) clockToRtc();
   diag::loop(millis());
-  backup::loop(millis(), brew.state() == BrewState::Running);
+  backup::loop(millis(), brew.state() == BrewState::Running || ota::active());
+  battery::poll(millis());
+  ota::confirmIfHealthy(millis());
 
   ui::update();
   delay(2);

@@ -189,6 +189,9 @@ dd { margin: 0; }
         <a href="/api/backup" role="menuitem">Download settings backup<small>Settings and recipes, without the Wi-Fi password</small></a>
         <a href="#" id="restoreBtn" role="menuitem">Restore from a backup file<small>The display restarts afterwards</small></a>
         <input type="file" id="restoreFile" accept=".json,application/json" hidden>
+        <div class="pop-sep inst">Device</div>
+        <a href="#" id="updateBtn" role="menuitem">Update firmware<small id="fwInfo">Upload firmware.bin; allow it on the Tab5 first</small></a>
+        <input type="file" id="updateFile" accept=".bin,application/octet-stream" hidden>
       </div>
     </div>
   </header>
@@ -318,6 +321,9 @@ async function load() {
   try {
     state.info = await api("/api/info");
     document.documentElement.dataset.scheme = state.info.scheme;
+    if (state.info.firmware)
+      $("#fwInfo").textContent = `Installed: ${state.info.firmware}. ` +
+        (state.info.updateAllowed ? "Updates are allowed now." : "Allow it on the Tab5 first (Settings > System).");
     if (!state.info.sd) return showEmpty("sd");
     const data = await api("/api/shots");
     state.shots = data.shots || [];
@@ -602,14 +608,44 @@ window.addEventListener("resize", () => {
 });
 
 // settings backup restore
-function toast(msg, bad) {
+function toast(msg, bad, keep) {
   const t = document.createElement("div");
   t.className = "toast" + (bad ? " bad" : "");
   t.setAttribute("role", "status");
   t.textContent = msg;
   document.body.appendChild(t);
-  setTimeout(() => t.remove(), 6000);
+  if (!keep) setTimeout(() => t.remove(), 6000);
+  return t;
 }
+
+// firmware update: multipart upload with progress
+$("#updateBtn").addEventListener("click", e => { e.preventDefault(); $("#updateFile").click(); });
+$("#updateFile").addEventListener("change", e => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  if (!/\.bin$/i.test(file.name)) return toast("Choose the firmware.bin file from the build folder.", true);
+  if (!confirm(`Install "${file.name}" (${(file.size / 1048576).toFixed(1)} MB) on the Tab5? It restarts afterwards. If the new firmware doesn't start properly, the Tab5 goes back to the current one.`)) return;
+  const t = toast("Uploading firmware… 0 %", false, true);
+  const form = new FormData();
+  form.append("firmware", file, file.name);
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", "/api/update");
+  xhr.upload.onprogress = ev => { if (ev.lengthComputable) t.textContent = `Uploading firmware… ${Math.round(ev.loaded * 100 / ev.total)} %`; };
+  xhr.onload = () => {
+    t.remove();
+    let res = {};
+    try { res = JSON.parse(xhr.responseText); } catch {}
+    if (xhr.status === 200) {
+      toast("Firmware installed. The Tab5 is restarting…");
+      setTimeout(() => location.reload(), 20000);
+    } else {
+      toast(res.error || "The update failed.", true);
+    }
+  };
+  xhr.onerror = () => { t.remove(); toast("The upload was interrupted.", true); };
+  xhr.send(form);
+});
 $("#restoreBtn").addEventListener("click", e => { e.preventDefault(); $("#restoreFile").click(); });
 $("#restoreFile").addEventListener("change", async e => {
   const file = e.target.files[0];

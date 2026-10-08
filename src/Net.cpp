@@ -8,6 +8,8 @@
 #include <mutex>
 #include "AcaiaScale.h"
 #include "Backup.h"
+#include "Brew.h"
+#include "Ota.h"
 #include "Diag.h"
 #include "History.h"
 #include "Recipes.h"
@@ -70,14 +72,15 @@ static void attachment(const char* name) {
 }
 
 static void handleInfo() {
-  char b[320];
+  char b[400];
   time_t now = time(nullptr);
   snprintf(b, sizeof(b),
            "{\"name\":\"Coffee Scale\",\"scheme\":\"%s\",\"sd\":%s,\"count\":%u,\"ref\":%lu,"
-           "\"recipe\":\"%s\",\"deviceTime\":%lu,\"restart\":\"%s\"}",
+           "\"recipe\":\"%s\",\"deviceTime\":%lu,\"restart\":\"%s\",\"firmware\":\"%s\",\"updateAllowed\":%s}",
            settings.colorScheme == 1 ? "racer" : "roast", history::available() ? "true" : "false",
            (unsigned)history::count(), (unsigned long)settings.refShotId, recipes::active().name,
-           (unsigned long)(now > 1700000000 ? now : 0), diag::shortReason());
+           (unsigned long)(now > 1700000000 ? now : 0), diag::shortReason(), diag::firmwareId(),
+           ota::allowed() ? "true" : "false");
   sendJson(200, b);
 }
 
@@ -203,6 +206,38 @@ static void handleBackupPost() {
   backup::restartSoon();   // the display restarts to apply everything
 }
 
+// Firmware upload (multipart form, field "firmware")
+static const char* otaError = nullptr;
+static bool otaForbidden = false;
+
+static void handleUpdateUpload() {
+  HTTPUpload& up = server.upload();
+  if (up.status == UPLOAD_FILE_START) {
+    otaError = nullptr;
+    otaForbidden = !ota::allowed();
+    if (otaForbidden) { otaError = "On the Tab5, open Settings > System and tap Allow web update."; return; }
+    if (brew.state() == BrewState::Running) { otaError = "A shot is running. Try again after the shot."; return; }
+    ota::begin(server.clientContentLength(), &otaError);
+  } else if (up.status == UPLOAD_FILE_WRITE) {
+    if (!otaError && !ota::write(up.buf, up.currentSize)) otaError = ota::lastError();
+  } else if (up.status == UPLOAD_FILE_END) {
+    if (!otaError) ota::finish(&otaError);
+  } else if (up.status == UPLOAD_FILE_ABORTED) {
+    ota::abort();
+    otaError = "The upload was interrupted.";
+  }
+}
+
+static void handleUpdateDone() {
+  if (otaError || !ota::succeeded()) {
+    std::string e = otaError ? otaError : "The update failed.";
+    for (auto& ch : e) if (ch == '"') ch = '\'';
+    return sendJson(otaForbidden ? 403 : 400, "{\"error\":\"" + e + "\"}");
+  }
+  sendJson(200, "{\"ok\":true}");
+  backup::restartSoon();   // boots the new firmware; it rolls back by itself if it fails
+}
+
 static void handleIndex() {
   server.sendHeader("Content-Encoding", "gzip");
   server.sendHeader("Cache-Control", "no-cache");
@@ -220,6 +255,7 @@ static void setupServer() {
   server.on("/api/rate", HTTP_POST, handleRate);
   server.on("/api/delete", HTTP_POST, handleDelete);
   server.on("/api/reference", HTTP_POST, handleReference);
+  server.on("/api/update", HTTP_POST, handleUpdateDone, handleUpdateUpload);
   server.on("/api/backup", HTTP_GET, handleBackupGet);
   server.on("/api/backup", HTTP_POST, handleBackupPost);
   server.onNotFound([] { server.send(404, "text/plain", "not found"); });

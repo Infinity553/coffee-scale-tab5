@@ -10,4 +10,5 @@ const char* shortReason();    // "" after a normal power-on
 const char* detail();         // full text (also printed to serial)
 bool bannerActive(uint32_t now);
 const char* firmwareId();     // first characters of the firmware's ELF SHA-256
+void markPlannedRestart();    // next boot is intentional (update, restore): no warning
 }  // namespace diag

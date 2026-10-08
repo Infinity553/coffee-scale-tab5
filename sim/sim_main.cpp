@@ -20,6 +20,7 @@
 #include <vector>
 #include "AcaiaScale.h"
 #include "Backup.h"
+#include "Battery.h"
 #include "Brew.h"
 #include "History.h"
 #include "Net.h"
@@ -148,6 +149,7 @@ void loop() {
   }
   ui::update();
   backup::loop(millis(), brew.state() == BrewState::Running);
+  battery::poll(millis());
 
   if (nextSnap < snaps.size() && sec >= snaps[nextSnap]) {
     ui::invalidate();

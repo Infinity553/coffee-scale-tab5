@@ -85,8 +85,20 @@ journal for an **Acaia Lunar** (also works with Pearl S, Pyxis and other Acaia s
 - Web page → Download menu: *Download settings backup* and *Restore from a backup file*.
   After a restore the display restarts.
 
+**Firmware update over Wi‑Fi**
+- On the Tab5: Settings → **System** → *Allow web update (10 min)*. Uploads are refused unless
+  someone at the display allowed them.
+- Web page → Download menu → *Update firmware*: pick `.pio/build/m5stack-tab5/firmware.bin`.
+  The Tab5 shows a progress screen and restarts into the new firmware.
+- Automatic rollback: the new firmware has to run for 30 s before it is marked good. If it
+  crashes or restarts earlier, the Tab5 boots the previous version again, and System shows
+  *(update undone)*.
+- Not possible during a shot. The C6 co‑processor firmware is updated separately (see below).
+
 **Device**
-- First‑run setup wizard, auto reconnect when the scale is switched on, scale battery level
+- First‑run setup wizard, auto reconnect when the scale is switched on
+- Battery levels: the scale's inside the connection pill, the Tab5's own (with a charging bolt)
+  at the top right. The Tab5 battery is hidden when it runs without a battery pack.
 - Two colour schemes: **Roast** (espresso brown + caramel) and **Racer** (black + racing red,
   inspired by the Sanremo Cafe Racer Naked)
 - Screen sleep when idle; wakes on touch or weight change
@@ -181,6 +193,8 @@ The preview server answers the same API as the Tab5, using the simulated SD card
 | `src/Brew.*` | Shot logic: stability, flow, auto tare, auto start/stop, dosing, drip learning, plot samples |
 | `src/Recipes.*` | Recipes with dose, ratio, time window, stop delay, threshold and pour‑over stages |
 | `src/DialIn.*` | Dial-in assistant: advice rules and the learned grind/time model |
+| `src/Ota.*` | Firmware update over Wi‑Fi: allow window, writing the image, rollback confirmation |
+| `src/Battery.*` | Tab5 battery level and charging state |
 | `src/Backup.*` | Settings + recipes backup (JSON) to the SD card and via the web API |
 | `src/History.*` | Shot history on the SD card, ratings/notes, reference and ghost curves |
 | `src/Storage.*` | SD card access (SPI mode), insert/remove detection |
@@ -205,6 +219,7 @@ The preview server answers the same API as the Tab5, using the simulated SD card
 | GET | `/api/export.json`, `/api/export.csv` | everything / summary of all shots |
 | POST | `/api/rate?id=N&stars=K`, `/api/reference?id=N`, `/api/delete?id=N` | change a shot |
 | GET / POST | `/api/backup` | download a settings backup / restore one (restarts the display) |
+| POST | `/api/update` | firmware upload (multipart field `firmware`); 403 unless allowed on the Tab5 |
 
 ### Acaia protocol notes
 

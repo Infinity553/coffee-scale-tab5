@@ -1,6 +1,7 @@
 #include "UIKit.h"
 #include <ctime>
 #include "AcaiaScale.h"
+#include "Battery.h"
 #include "Blit.h"
 #include "Recipes.h"
 #include "Settings.h"
@@ -275,11 +276,49 @@ void statusPill(int cx, int cy) {
     case ScaleState::Searching:   label = "Waiting for scale"; dot = BAD; break;
     default:                      label = "Bluetooth off"; dot = BAD; break;
   }
-  int w = textWidth(label, F_LABEL) + 72, h = 46;
+  // the scale's battery lives inside the pill, next to its name
+  int bat = scale.connected() ? scale.battery() : -1;
+  char pct[8] = "";
+  if (bat >= 0) snprintf(pct, sizeof(pct), "%d%%", bat);
+  int extra = bat >= 0 ? 24 + 36 + 8 + textWidth(pct, F_LABEL) : 0;
+  int w = textWidth(label, F_LABEL) + 72 + extra, h = 46;
   canvas.fillSmoothRoundRect(cx - w / 2, cy - h / 2, w, h, h / 2, SURFACE2);
   bool pulse = scale.state() != ScaleState::Connected && (millis() / 600) % 2;
   canvas.fillSmoothCircle(cx - w / 2 + 28, cy, 8, pulse ? STROKE : dot);
-  text(label, cx - w / 2 + 48, cy + 1, F_LABEL, TEXT);
+  int tx = cx - w / 2 + 48;
+  text(label, tx, cy + 1, F_LABEL, TEXT);
+  if (bat >= 0) {
+    int bx = tx + textWidth(label, F_LABEL) + 24;
+    // small battery
+    uint16_t bc = bat < 15 ? BAD : MUTED;
+    canvas.fillSmoothRoundRect(bx, cy - 8, 30, 16, 4, bc);
+    canvas.fillSmoothRoundRect(bx + 2, cy - 6, 26, 12, 3, SURFACE2);
+    canvas.fillRect(bx + 30, cy - 4, 3, 8, bc);
+    int fw = 22 * constrain(bat, 0, 100) / 100;
+    if (fw > 0) canvas.fillRect(bx + 4, cy - 4, fw, 8, bc);
+    text(pct, bx + 42, cy + 1, F_LABEL, MUTED);
+  }
+}
+
+int deviceBattery(int xr, int cy) {
+  if (!battery::present()) return 0;
+  int lvl = battery::level();
+  bool chg = battery::charging();
+  uint16_t c = chg ? GOOD : lvl <= 10 ? BAD : MUTED;
+  char b[8];
+  snprintf(b, sizeof(b), "%d%%", lvl);
+  int tw = textWidth(b, F_LABEL);
+  text(b, xr, cy, F_LABEL, c, textdatum_t::middle_right);
+  int ix = xr - tw - 60;
+  iconBattery(ix, cy - 12, lvl, c);
+  if (chg) {   // lightning bolt over the icon
+    int bx = ix + 23, by = cy;
+    canvas.fillTriangle(bx + 3, by - 10, bx - 5, by + 2, bx + 1, by + 2, BG);
+    canvas.fillTriangle(bx - 1, by - 2, bx + 5, by - 2, bx - 3, by + 10, BG);
+    canvas.fillTriangle(bx + 2, by - 8, bx - 3, by + 1, bx + 1, by + 1, TEXT);
+    canvas.fillTriangle(bx, by - 1, bx + 3, by - 1, bx - 2, by + 8, TEXT);
+  }
+  return tw + 64;
 }
 
 void topBar(const char* title, Screen backTo) {
@@ -288,13 +327,7 @@ void topBar(const char* title, Screen backTo) {
   iconBack(46, 40, TEXT, SURFACE2);
   textFit(title, 90, 40, 470, F_BTN, TEXT);
   statusPill(W / 2 + 120, 40);
-  int bat = scale.battery();
-  if (scale.connected() && bat >= 0) {
-    char s[8];
-    snprintf(s, sizeof(s), "%d%%", bat);
-    text(s, W - 36, 40, F_LABEL, MUTED, textdatum_t::middle_right);
-    iconBattery(W - 36 - textWidth(s, F_LABEL) - 70, 28, bat, MUTED);
-  }
+  deviceBattery(W - 36, 40);
   if (b) {
     settings.save();
     setScreen(backTo);

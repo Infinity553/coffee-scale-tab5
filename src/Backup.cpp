@@ -1,6 +1,7 @@
 #include "Backup.h"
 #include <ArduinoJson.h>
 #include <ctime>
+#include "Diag.h"
 #include "History.h"
 #include "Recipes.h"
 #include "Settings.h"
@@ -193,6 +194,7 @@ void markDirty() {
 void loop(uint32_t now, bool busy) {
   if (restartAt && (int32_t)(now - restartAt) >= 0) {
 #ifdef ARDUINO
+    diag::markPlannedRestart();
     ESP.restart();
 #else
     restartAt = 0;

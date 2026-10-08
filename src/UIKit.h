@@ -86,6 +86,8 @@ void iconCheck(int cx, int cy, uint16_t c, uint16_t bg);
 void iconLock(int cx, int cy, uint16_t c, uint16_t bg);
 void iconChevron(int cx, int cy, uint16_t c, uint16_t bg);
 void iconBattery(int x, int y, int pct, uint16_t c);
+// Tab5 battery (icon, %, charging bolt), right-aligned at xr. Returns the width used (0 = none).
+int  deviceBattery(int xr, int cy);
 void iconStar(int cx, int cy, int r, bool filled, uint16_t c);
 
 // --- segment digits ---
@@ -126,6 +128,7 @@ void drawWifi();
 void drawNetworks();
 void drawKeyboard();
 void drawSystem();
+void drawUpdating();   // full screen while a firmware update is written
 void drawKeypad();
 
 // Numeric keypad (full screen). One or two fields; `apply` gets the values

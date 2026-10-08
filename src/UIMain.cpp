@@ -1,5 +1,6 @@
 // Main screen: weight, timer, buttons, extraction plot and the shot summary.
 #include "AcaiaScale.h"
+#include "Battery.h"
 #include "DialIn.h"
 #include "Diag.h"
 #include "History.h"
@@ -88,13 +89,7 @@ static void drawTop() {
     if (w) setScreen(Screen::Wifi);
     bx -= 64;
   }
-  int bat = scale.battery();
-  if (scale.connected() && bat >= 0) {
-    char b[8];
-    snprintf(b, sizeof(b), "%d%%", bat);
-    text(b, bx, 40, F_LABEL, MUTED, textdatum_t::middle_right);
-    iconBattery(bx - textWidth(b, F_LABEL) - 66, 28, bat, MUTED);
-  }
+  deviceBattery(bx, 40);   // the Tab5's own battery (the scale's is in the status pill)
 }
 
 // ---------------------------------------------------------------------------
@@ -572,9 +567,10 @@ static uint32_t sigTop() {
   char b[128];
   net::Status ns = net::status();
   bool pulse = scale.state() != ScaleState::Connected && (millis() / 600) % 2;
-  snprintf(b, sizeof(b), "%d|%d|%d|%d|%d|%d|%d|%d|%s", (int)scale.state(), scale.battery(), pulse,
+  snprintf(b, sizeof(b), "%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%s", (int)scale.state(), scale.battery(), pulse,
            recipes::activeIndex(), ns.enabled, ns.connected, flashActive(millis()),
-           diag::bannerActive(millis()), scale.connectedName().c_str());
+           diag::bannerActive(millis()), battery::level(), battery::charging(),
+           scale.connectedName().c_str());
   return fnv(b);
 }
 

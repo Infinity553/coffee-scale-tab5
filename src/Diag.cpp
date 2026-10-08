@@ -38,6 +38,14 @@ void begin() {
       explain = "software restart, most likely ESP-Hosted after the C6 radio chip reset"; break;
     default: break;
   }
+  {
+    Preferences p;
+    p.begin("diag", false);
+    bool planned = p.isKey("planned") && p.getBool("planned", false);
+    if (planned) p.remove("planned");
+    p.end();
+    if (planned && r == ESP_RST_SW) { why = ""; explain = "planned restart (update or restore)"; }
+  }
   if (*why) snprintf(shortText, sizeof(shortText), "Restarted: %s", why);
 
   char mySha[17] = "";
@@ -99,6 +107,13 @@ void loop(uint32_t now) {
   if (lastPrint && now - lastPrint < 10000) return;
   lastPrint = now;
   Serial.println(detailText);
+}
+
+void markPlannedRestart() {
+  Preferences p;
+  p.begin("diag", false);
+  p.putBool("planned", true);
+  p.end();
 }
 
 const char* firmwareId() {

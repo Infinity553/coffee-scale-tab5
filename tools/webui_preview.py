@@ -57,7 +57,8 @@ class Handler(BaseHTTPRequestHandler):
             n = len(load_index()["shots"])
             return self.send(200, json.dumps({"name": "Coffee Scale", "scheme": state["scheme"],
                                               "sd": os.path.isdir(SD), "count": n, "ref": state["ref"],
-                                              "recipe": "Espresso", "deviceTime": 0}))
+                                              "recipe": "Espresso", "deviceTime": 0,
+                                              "firmware": "preview", "updateAllowed": state.get("allowUpdate", False)}))
         if u.path == "/api/shots":
             return self.send(200, json.dumps(load_index()))
         if u.path == "/api/shot":
@@ -106,6 +107,11 @@ class Handler(BaseHTTPRequestHandler):
             save_index(doc)
         elif u.path == "/api/reference":
             state["ref"] = sid
+        elif u.path == "/api/update":
+            n = int(self.headers.get("Content-Length", 0))
+            self.rfile.read(n)
+            if not state.get("allowUpdate"):
+                return self.send(403, '{"error":"On the Tab5, open Settings > System and tap Allow web update."}')
         elif u.path == "/api/backup":
             n = int(self.headers.get("Content-Length", 0))
             try:
@@ -126,7 +132,9 @@ if __name__ == "__main__":
     ap.add_argument("--scheme", default="roast", choices=["roast", "racer"])
     ap.add_argument("--port", type=int, default=8080)
     ap.add_argument("--ref", type=int, default=0)
+    ap.add_argument("--allow-update", action="store_true", help="accept firmware uploads")
     a = ap.parse_args()
     state["scheme"], state["ref"] = a.scheme, a.ref
+    state["allowUpdate"] = a.allow_update
     print(f"Web UI preview on http://localhost:{a.port}")
     ThreadingHTTPServer(("127.0.0.1", a.port), Handler).serve_forever()

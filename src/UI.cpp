@@ -2,6 +2,8 @@
 #include "UI.h"
 #include "AcaiaScale.h"
 #include "Backup.h"
+#include "Battery.h"
+#include "Ota.h"
 #include "Blit.h"
 #include "History.h"
 #include "Net.h"
@@ -179,6 +181,8 @@ static uint32_t screenSignature() {
   auto mixs = [&](const std::string& s) { for (char ch : s) mix((uint8_t)ch); mix(0); };
   mix((uint32_t)scale.state());
   mix((uint32_t)scale.battery());
+  mix((uint32_t)battery::level());
+  mix(battery::charging());
   switch (current) {
     case Screen::SetupScan:
     case Screen::Scan:
@@ -199,6 +203,7 @@ static uint32_t screenSignature() {
     case Screen::SetupWelcome:
     case Screen::System:
       mix(history::available()); mix(backup::lastSavedMs()); mix(settings.autoBackup);
+      mix(ota::allowedSecondsLeft());
       mix((uint32_t)history::count()); mix(millis() / 1000 % 4 == 0);   // refresh "saved" notes
       break;
     default:
@@ -211,6 +216,22 @@ void update() {
   uint32_t now = millis();
   auto t = M5.Touch.getDetail();
   bool touched = t.wasPressed();
+
+  // ---- firmware update: progress screen only, no touch ----
+  if (ota::active() || ota::succeeded()) {
+    if (asleep) wake(now);
+    static int lastShown = -1;
+    int p = ota::progress() + (ota::succeeded() ? 1000 : 0);
+    if (p != lastShown && now - lastDraw >= 150) {
+      lastShown = p;
+      fillRectFast(0, 0, W, H, BG);
+      drawUpdating();
+      pushRect({0, 0, W, H});
+      lastDraw = now;
+    }
+    dirty = true;   // full repaint once it's over (e.g. after a failed upload)
+    return;
+  }
 
   // ---- screen sleep ----
   if (fabsf(brew.weight() - activityWeight) > 0.5f || brew.state() == BrewState::Running) {

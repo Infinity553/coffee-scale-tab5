@@ -6,6 +6,7 @@
 #include <WiFi.h>
 #include <algorithm>
 #include <mutex>
+#include "esp_wifi.h"
 #include "ping/ping_sock.h"
 #include "AcaiaScale.h"
 #include "Backup.h"
@@ -394,6 +395,25 @@ static bool probeLoop() {
   return false;
 }
 
+static const char* psName(wifi_ps_type_t ps) {
+  return ps == WIFI_PS_NONE ? "off" : ps == WIFI_PS_MIN_MODEM ? "min modem" : "max modem";
+}
+
+// Log the connection and make sure power save really is off (the C6 may refuse
+// it while Bluetooth shares the radio; then we know from the log).
+static void logConnected() {
+  wifi_ps_type_t ps = WIFI_PS_MIN_MODEM;
+  esp_wifi_get_ps(&ps);
+  if (ps != WIFI_PS_NONE) {
+    esp_err_t err = esp_wifi_set_ps(WIFI_PS_NONE);
+    if (err != ESP_OK) Serial.printf("[WiFi] can't turn power save off: %s\n", esp_err_to_name(err));
+    esp_wifi_get_ps(&ps);
+  }
+  Serial.printf("[WiFi] connected to %s: IP %s, router %s, RSSI %d dBm, channel %d, power save %s\n",
+                settings.wifiSsid.c_str(), WiFi.localIP().toString().c_str(),
+                WiFi.gatewayIP().toString().c_str(), (int)WiFi.RSSI(), (int)WiFi.channel(), psName(ps));
+}
+
 static void startServices() {
   if (!serverUp) {
     server.begin();
@@ -430,6 +450,10 @@ static void doApply() {
     return;
   }
   WiFi.setHostname(HOSTNAME);
+  // No Wi-Fi power save: in modem sleep the C6 only picks up traffic addressed to
+  // the Tab5 now and then (multicast works, ping and HTTP mostly don't), so the
+  // web page doesn't load. Applied when the station starts.
+  WiFi.setSleep(false);
   wifiStarted = true;
   if (settings.wifiMode == WIFI_HOTSPOT) {
     WiFi.mode(WIFI_AP);
@@ -454,6 +478,7 @@ static volatile int scanResult = 0;   // networks found, or < 0 when the scan fa
 static void doScan() {
   wifi_mode_t m = wifiStarted ? WiFi.getMode() : WIFI_OFF;
   wifiStarted = true;
+  WiFi.setSleep(false);
   if (m == WIFI_OFF) WiFi.mode(WIFI_STA);
   else if (m == WIFI_AP) WiFi.mode(WIFI_AP_STA);
 
@@ -523,6 +548,7 @@ static void task(void*) {
     if (settings.wifiEnabled && settings.wifiMode == WIFI_HOME && settings.wifiSsid.length()) {
       bool c = WiFi.status() == WL_CONNECTED;
       if (c && !wasConnected) {
+        logConnected();
         probeReset();
         startServices();
         setStatus(true, false, WiFi.localIP().toString().c_str(), settings.wifiSsid.c_str());

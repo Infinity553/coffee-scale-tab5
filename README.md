@@ -130,7 +130,10 @@ Use a FAT32‑formatted microSD card. Shots go to `/coffeescale/` (`index.json` 
 ### Troubleshooting
 
 - **Wi‑Fi connected, but the web page doesn't load** (the Tab5 doesn't answer ping either):
-  while connected, the Tab5 pings its router every 15 s. Once the router has answered, three
+  Wi‑Fi power save is turned off for this reason. In modem sleep the C6 picked up traffic
+  addressed to the Tab5 only now and then, while multicast (mDNS) kept working. After
+  connecting, the log shows `[WiFi] connected to ... power save off`. If it says
+  `can't turn power save off`, the C6 refused it. Also, while connected, the Tab5 pings its router every 15 s. Once the router has answered, three
   missed checks in a row reconnect Wi‑Fi. Serial log: `[WiFi] router not answering ...` and
   `... no traffic gets through, reconnecting`. Routers that never answer ping turn the check off.
 

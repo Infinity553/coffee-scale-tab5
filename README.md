@@ -23,6 +23,7 @@ web page lets you browse and download every shot from your phone or computer.
 - [Troubleshooting](#troubleshooting)
 - [Development](#development)
 - [Acknowledgements and disclaimer](#acknowledgements-and-disclaimer)
+- [License](#license)
 
 ## Features
 
@@ -353,3 +354,7 @@ ones use `0x1820` / characteristic `0x2A80`. Both are supported.
 This is an independent hobby project. It is not affiliated with or endorsed by Acaia, M5Stack,
 Espressif or Sanremo. All product names and trademarks belong to their owners. Use it at your
 own risk.
+
+## License
+
+Released under the [MIT License](LICENSE).

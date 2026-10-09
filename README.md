@@ -103,7 +103,7 @@ The project uses the [pioarduino](https://github.com/pioarduino/platform-espress
 ### 2. Get the code
 
 ```bash
-git clone https://github.com/<your-user>/coffee-scale-tab5.git
+git clone https://github.com/Infinity553/coffee-scale-tab5.git
 cd coffee-scale-tab5
 ```
 
